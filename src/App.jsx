@@ -151,16 +151,21 @@ export default function App() {
           clearInterval(interval);
           
           const results = Array.from({ length: videoMetadata.estimatedShorts }).map((_, i) => {
-            const randomStart = Math.floor(Math.random() * (videoMetadata.durationSec > 60 ? videoMetadata.durationSec - 60 : 0));
+            // Kalkulasi durasi acak untuk video ini (antara 30 - 60 detik)
+            const durationSec = Math.floor(Math.random() * (60 - 30 + 1) + 30);
+            const randomStart = Math.floor(Math.random() * (videoMetadata.durationSec > durationSec ? videoMetadata.durationSec - durationSec : 0));
+            const exactEndTime = randomStart + durationSec;
             
             return {
               id: i + 1,
               title: `Part ${i + 1} - Momen Menarik dari Video Utama`,
-              duration: `0:${Math.floor(Math.random() * (60 - 30 + 1) + 30)}`, 
+              duration: `0:${durationSec}`, 
+              durationSec: durationSec,
               score: `${Math.floor(Math.random() * (99 - 80 + 1) + 80)}%`,
               img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
               videoId: videoMetadata.id,
               startTime: randomStart,
+              endTime: exactEndTime, // Menyimpan titik berhenti video
               appliedTemplate: selectedTemplate,
               transcript: [
                 { id: 1, time: '0:00 - 0:02', text: 'Pernahkah kalian menyadari' },
@@ -521,7 +526,7 @@ export default function App() {
                 {isPlayingStudio ? (
                   <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black">
                     <iframe 
-                      src={`https://www.youtube.com/embed/${editingShort.videoId}?autoplay=1&mute=1&controls=0&start=${editingShort.startTime}&loop=1&playlist=${editingShort.videoId}&modestbranding=1`}
+                      src={`https://www.youtube.com/embed/${editingShort.videoId}?autoplay=1&mute=1&controls=0&start=${editingShort.startTime}&end=${editingShort.endTime}&loop=1&playlist=${editingShort.videoId}&modestbranding=1`}
                       className="absolute top-1/2 left-1/2 w-[350%] h-[100%] max-w-none -translate-x-1/2 -translate-y-1/2 pointer-events-none"
                       allow="autoplay; encrypted-media"
                       title="Pro Studio Preview"
@@ -668,7 +673,7 @@ export default function App() {
           <div className="w-full max-w-[400px] aspect-[9/16] bg-black rounded-3xl overflow-hidden relative border border-gray-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center">
             
             <iframe 
-              src={`https://www.youtube.com/embed/${playingVideo.videoId}?autoplay=1&mute=0&controls=0&start=${playingVideo.startTime}&loop=1&playlist=${playingVideo.videoId}&rel=0&modestbranding=1`}
+              src={`https://www.youtube.com/embed/${playingVideo.videoId}?autoplay=1&mute=0&controls=0&start=${playingVideo.startTime}&end=${playingVideo.endTime}&loop=1&playlist=${playingVideo.videoId}&rel=0&modestbranding=1`}
               className="absolute top-1/2 left-1/2 w-[350%] h-[100%] max-w-none -translate-x-1/2 -translate-y-1/2 pointer-events-none"
               allow="autoplay; encrypted-media"
               title="Result Video"
