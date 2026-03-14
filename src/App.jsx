@@ -35,6 +35,9 @@ export default function App() {
   const [playProgress, setPlayProgress] = useState(0);
   const [iframeKey, setIframeKey] = useState(0); // Kunci rahasia untuk perfect-loop
 
+  // State Fitur Download Simulasi
+  const [downloadState, setDownloadState] = useState({ id: null, progress: 0 });
+
   const templates = [
     { id: 'podcast', name: 'Podcast Style', desc: 'Wajah di tengah, teks dinamis', icon: <User className="w-6 h-6" /> },
     { id: 'gaming', name: 'Gaming Split', desc: 'Facecam atas, game di bawah', icon: <Video className="w-6 h-6" /> },
@@ -126,6 +129,38 @@ export default function App() {
     setPlayProgress(0);
   };
 
+  // Simulasi Fitur Download Video Fisik
+  const handleDownload = (short) => {
+    if (downloadState.id) return; // Mencegah klik download ganda
+    setDownloadState({ id: short.id, progress: 0 });
+    
+    let currentProgress = 0;
+    const interval = setInterval(() => {
+      // Mensimulasikan proses rendering video di server AI
+      currentProgress += Math.random() * 15;
+      
+      if (currentProgress >= 100) {
+        currentProgress = 100;
+        clearInterval(interval);
+        
+        // Buat file simulasi (.mp4) agar browser memicu proses Download asli ke Komputer/HP
+        const blob = new Blob(['(File Simulasi) Ini adalah video vertikal hasil dari ShortsMagic.AI. Di tahap produksi, file ini berisi MP4 asli.'], { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ShortsMagic_Part${short.id}_${short.durationSec}detik.mp4`; // Format nama file
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Reset state tombol setelah selesai mengunduh
+        setTimeout(() => setDownloadState({ id: null, progress: 0 }), 1500);
+      }
+      setDownloadState({ id: short.id, progress: Math.floor(currentProgress) });
+    }, 400); // Kecepatan render
+  };
+
   // 1. FASE ANALISIS (Simulasi API)
   const handleAnalyzeVideo = async () => {
     const videoId = extractYouTubeID(youtubeUrl);
@@ -185,15 +220,15 @@ export default function App() {
           clearInterval(interval);
           
           const results = Array.from({ length: videoMetadata.estimatedShorts }).map((_, i) => {
-            // Kalkulasi durasi acak untuk video ini (misal 30 detik)
-            const durationSec = Math.floor(Math.random() * (60 - 30 + 1) + 30);
+            // Kalkulasi durasi acak presisi untuk video ini (antara 15 - 60 detik)
+            const durationSec = Math.floor(Math.random() * (60 - 15 + 1) + 15);
             const randomStart = Math.floor(Math.random() * (videoMetadata.durationSec > durationSec ? videoMetadata.durationSec - durationSec : 0));
             const exactEndTime = randomStart + durationSec;
             
             return {
               id: i + 1,
               title: `Part ${i + 1} - Hook Utama yang Bikin Penonton Bertahan`,
-              duration: `0:${durationSec}`, 
+              duration: `0:${durationSec.toString().padStart(2, '0')}`, // Format 0:00
               durationSec: durationSec,
               score: `${Math.floor(Math.random() * (99 - 80 + 1) + 80)}%`,
               img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
@@ -525,9 +560,19 @@ export default function App() {
                   <h4 className="text-white text-sm font-bold leading-snug line-clamp-2 mb-3 h-10">{short.title}</h4>
                   <div>
                     <div className="flex gap-2">
-                      <button className="flex-1 py-2 bg-white text-gray-950 text-sm font-bold rounded-lg flex justify-center items-center gap-2 hover:bg-gray-200 transition">
-                        <Download className="w-4 h-4" /> Ekspor
-                      </button>
+                      {/* Tombol Berubah Saat Diklik Download */}
+                      {downloadState.id === short.id ? (
+                        <button disabled className="flex-1 py-2 bg-purple-600 text-white text-sm font-bold rounded-lg flex justify-center items-center gap-2 transition cursor-wait shadow-inner">
+                          <Loader2 className="w-4 h-4 animate-spin" /> {downloadState.progress < 100 ? `Merender ${downloadState.progress}%` : 'Selesai!'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => handleDownload(short)}
+                          className="flex-1 py-2 bg-white text-gray-950 text-sm font-bold rounded-lg flex justify-center items-center gap-2 hover:bg-gray-200 transition"
+                        >
+                          <Download className="w-4 h-4" /> Ekspor
+                        </button>
+                      )}
                       <button 
                         onClick={() => openStudio(short)}
                         className="p-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition" 
