@@ -17,7 +17,7 @@ export default function App() {
   const [selectedTemplate, setSelectedTemplate] = useState('podcast');
   
   // State Proses
-  const [processState, setProcessState] = useState('idle'); // idle, analyzing, ready, processing, completed
+  const [processState, setProcessState] = useState('idle'); 
   const [videoMetadata, setVideoMetadata] = useState(null);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState('');
@@ -25,13 +25,15 @@ export default function App() {
   
   // State Fitur Pro Studio
   const [editingShort, setEditingShort] = useState(null);
-  const [studioTab, setStudioTab] = useState('template'); // 'template', 'subtitles', 'analytics'
+  const [studioTab, setStudioTab] = useState('template'); 
   const [editedTranscript, setEditedTranscript] = useState([]);
   
-  // State Fitur Pemutar Video
+  // State Fitur Pemutar Video (Super Presisi)
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isPlayingStudio, setIsPlayingStudio] = useState(false);
   const [activeSubtitleIndex, setActiveSubtitleIndex] = useState(0);
+  const [playProgress, setPlayProgress] = useState(0);
+  const [iframeKey, setIframeKey] = useState(0); // Kunci rahasia untuk perfect-loop
 
   const templates = [
     { id: 'podcast', name: 'Podcast Style', desc: 'Wajah di tengah, teks dinamis', icon: <User className="w-6 h-6" /> },
@@ -39,22 +41,53 @@ export default function App() {
     { id: 'motivation', name: 'Motivasi Viral', desc: 'Teks tebal, efek zoom', icon: <Sparkles className="w-6 h-6" /> },
   ];
 
-  // Efek untuk Animasi Subtitle Berjalan
+  // Efek 1: Progress Bar & Perfect Looping (Tanpa Patah-Patah)
+  useEffect(() => {
+    let timer;
+    if (playingVideo || isPlayingStudio) {
+      const activeVideo = playingVideo || editingShort;
+      if (!activeVideo) return;
+
+      const durationMs = activeVideo.durationSec * 1000;
+      const intervalMs = 50; // Update sangat cepat agar bar mulus
+
+      timer = setInterval(() => {
+        setPlayProgress((prev) => {
+          const next = prev + (intervalMs / durationMs) * 100;
+          if (next >= 100) {
+            // Saat durasi habis, paksa pemutar YouTube reset seketika ke detik awal (Perfect Loop)
+            setIframeKey(k => k + 1);
+            return 0;
+          }
+          return next;
+        });
+      }, intervalMs);
+    } else {
+      setPlayProgress(0);
+    }
+    return () => clearInterval(timer);
+  }, [playingVideo, isPlayingStudio, iframeKey, editingShort]);
+
+  // Efek 2: Sinkronisasi Subtitle Matematis (Tepat Waktu)
   useEffect(() => {
     let interval;
     if (playingVideo || isPlayingStudio) {
-      interval = setInterval(() => {
-        setActiveSubtitleIndex((prev) => {
-          const currentTranscript = playingVideo ? playingVideo.transcript : editedTranscript;
-          if (!currentTranscript || currentTranscript.length === 0) return 0;
-          return (prev + 1) % currentTranscript.length;
-        });
-      }, 2500); // Ganti teks setiap 2.5 detik
+      const activeVideo = playingVideo || editingShort;
+      const transcript = playingVideo ? playingVideo.transcript : editedTranscript;
+      
+      if (activeVideo && transcript && transcript.length > 0) {
+        // Durasi tiap kata dihitung persis berdasarkan panjang video & jumlah subtitle
+        const timePerSubtitle = (activeVideo.durationSec * 1000) / transcript.length;
+        
+        interval = setInterval(() => {
+          setActiveSubtitleIndex((prev) => (prev + 1) % transcript.length);
+        }, timePerSubtitle);
+      }
     } else {
       setActiveSubtitleIndex(0);
     }
     return () => clearInterval(interval);
-  }, [playingVideo, isPlayingStudio, editedTranscript]);
+  }, [playingVideo, isPlayingStudio, editedTranscript, editingShort, iframeKey]);
 
   // Ekstrak ID YouTube dari Link
   const extractYouTubeID = (url) => {
@@ -90,6 +123,7 @@ export default function App() {
     setStudioTab('template');
     setEditedTranscript(short.transcript || []);
     setActiveSubtitleIndex(0);
+    setPlayProgress(0);
   };
 
   // 1. FASE ANALISIS (Simulasi API)
@@ -151,29 +185,29 @@ export default function App() {
           clearInterval(interval);
           
           const results = Array.from({ length: videoMetadata.estimatedShorts }).map((_, i) => {
-            // Kalkulasi durasi acak untuk video ini (antara 30 - 60 detik)
+            // Kalkulasi durasi acak untuk video ini (misal 30 detik)
             const durationSec = Math.floor(Math.random() * (60 - 30 + 1) + 30);
             const randomStart = Math.floor(Math.random() * (videoMetadata.durationSec > durationSec ? videoMetadata.durationSec - durationSec : 0));
             const exactEndTime = randomStart + durationSec;
             
             return {
               id: i + 1,
-              title: `Part ${i + 1} - Momen Menarik dari Video Utama`,
+              title: `Part ${i + 1} - Hook Utama yang Bikin Penonton Bertahan`,
               duration: `0:${durationSec}`, 
               durationSec: durationSec,
               score: `${Math.floor(Math.random() * (99 - 80 + 1) + 80)}%`,
               img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
               videoId: videoMetadata.id,
               startTime: randomStart,
-              endTime: exactEndTime, // Menyimpan titik berhenti video
+              endTime: exactEndTime,
               appliedTemplate: selectedTemplate,
               transcript: [
-                { id: 1, time: '0:00 - 0:02', text: 'Pernahkah kalian menyadari' },
-                { id: 2, time: '0:02 - 0:05', text: 'rahasia besar ini?' },
-                { id: 3, time: '0:05 - 0:08', text: 'Banyak orang yang melewatkan' },
-                { id: 4, time: '0:08 - 0:12', text: 'detail penting yang ada di depan mata.' },
-                { id: 5, time: '0:12 - 0:15', text: 'Tonton sampai habis' },
-                { id: 6, time: '0:15 - 0:20', text: 'untuk penjelasan lengkapnya!' }
+                { id: 1, time: '0:00', text: 'Pernahkah kalian menyadari' },
+                { id: 2, time: '0:05', text: 'rahasia besar ini?' },
+                { id: 3, time: '0:10', text: 'Banyak orang yang melewatkan' },
+                { id: 4, time: '0:15', text: 'detail penting yang ada di depan mata.' },
+                { id: 5, time: '0:20', text: 'Tonton sampai habis' },
+                { id: 6, time: '0:25', text: 'untuk penjelasan lengkapnya!' }
               ],
               viralInsights: [
                 'Hook awal sangat kuat memancing rasa penasaran.',
@@ -193,7 +227,7 @@ export default function App() {
 
   // --- KOMPONEN NAVIGASI ---
   const Navbar = () => (
-    <nav className="flex items-center justify-between p-6 bg-gray-950 border-b border-gray-800 sticky top-0 z-40">
+    <nav className="flex items-center justify-between p-6 bg-gray-950 border-b border-gray-800 sticky top-0 z-40 shadow-xl shadow-black/20">
       <div 
         className="flex items-center gap-2 cursor-pointer" 
         onClick={() => setCurrentView(user ? 'dashboard' : 'landing')}
@@ -231,7 +265,7 @@ export default function App() {
   const LandingView = () => (
     <div className="flex flex-col items-center justify-center min-h-[85vh] px-4 text-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-gray-950">
       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 text-purple-400 font-medium text-sm mb-8 border border-purple-500/20 backdrop-blur-sm">
-        <Sparkles className="w-4 h-4" /> Engine V2.0 - Analisis Durasi Dinamis
+        <Sparkles className="w-4 h-4" /> Engine V2.0 - Mulus Tanpa Patah-Patah
       </div>
       <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight max-w-4xl tracking-tight">
         Satu Video Panjang, <br/>
@@ -338,7 +372,7 @@ export default function App() {
                   placeholder="https://www.youtube.com/watch?v=..." 
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 text-white px-5 py-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
+                  className="w-full bg-gray-950 border border-gray-800 text-white px-5 py-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition shadow-inner"
                 />
               </div>
               <button 
@@ -370,7 +404,7 @@ export default function App() {
 
           <div className="flex flex-col md:flex-row gap-8 mb-8">
             <div className="w-full md:w-1/3">
-              <div className="relative aspect-video rounded-xl overflow-hidden border border-gray-800 bg-gray-950 mb-4 group">
+              <div className="relative aspect-video rounded-xl overflow-hidden border border-gray-800 bg-gray-950 mb-4 group shadow-lg">
                 <img src={videoMetadata.thumbnail} alt="Thumbnail" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition" />
                 <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-xs text-white font-mono flex items-center gap-1">
                   <Clock className="w-3 h-3" /> {videoMetadata.durationStr}
@@ -395,7 +429,7 @@ export default function App() {
                       onClick={() => setSelectedTemplate(tpl.id)}
                       className={`p-4 rounded-xl border-2 cursor-pointer transition flex flex-col gap-2 ${
                         selectedTemplate === tpl.id 
-                          ? 'border-purple-500 bg-purple-500/10' 
+                          ? 'border-purple-500 bg-purple-500/10 shadow-inner' 
                           : 'border-gray-800 bg-gray-950 hover:border-gray-700'
                       }`}
                     >
@@ -523,11 +557,20 @@ export default function App() {
               
               <div className="relative z-10 w-full max-w-[280px] aspect-[9/16] bg-gray-900 border border-gray-700 rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col items-center justify-center text-center group">
                 
+                {/* Progress Bar (Hardware Accelerated) */}
+                {isPlayingStudio && (
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-30">
+                    <div className="h-full bg-purple-500 transition-all duration-75 ease-linear" style={{ width: `${playProgress}%` }}></div>
+                  </div>
+                )}
+
                 {isPlayingStudio ? (
                   <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black">
+                    {/* Menggunakan scale CSS hardware acceleration untuk mencegah patah-patah */}
                     <iframe 
-                      src={`https://www.youtube.com/embed/${editingShort.videoId}?autoplay=1&mute=1&controls=0&start=${editingShort.startTime}&end=${editingShort.endTime}&loop=1&playlist=${editingShort.videoId}&modestbranding=1`}
-                      className="absolute top-1/2 left-1/2 w-[350%] h-[100%] max-w-none -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                      key={iframeKey}
+                      src={`https://www.youtube.com/embed/${editingShort.videoId}?autoplay=1&mute=1&controls=0&start=${editingShort.startTime}&end=${editingShort.endTime}&playsinline=1&rel=0&modestbranding=1`}
+                      className="absolute top-1/2 left-1/2 w-full h-full max-w-none -translate-x-1/2 -translate-y-1/2 scale-[3.5] sm:scale-[3.1] pointer-events-none"
                       allow="autoplay; encrypted-media"
                       title="Pro Studio Preview"
                     />
@@ -540,7 +583,7 @@ export default function App() {
                 
                 {!isPlayingStudio ? (
                   <button 
-                    onClick={() => setIsPlayingStudio(true)}
+                    onClick={() => { setIsPlayingStudio(true); setPlayProgress(0); setIframeKey(k=>k+1); }}
                     className="bg-white/20 p-4 rounded-full backdrop-blur-md border border-white/40 group-hover:scale-110 transition relative z-10"
                   >
                     <Play className="w-8 h-8 text-white fill-white ml-1" />
@@ -664,7 +707,7 @@ export default function App() {
       {playingVideo && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/95 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
           <button 
-            onClick={() => setPlayingVideo(null)}
+            onClick={() => { setPlayingVideo(null); setPlayProgress(0); }}
             className="absolute top-6 right-6 p-3 text-gray-400 hover:text-white bg-gray-900 hover:bg-gray-800 rounded-full transition z-10 border border-gray-700"
           >
             <X className="w-6 h-6" />
@@ -672,14 +715,21 @@ export default function App() {
           
           <div className="w-full max-w-[400px] aspect-[9/16] bg-black rounded-3xl overflow-hidden relative border border-gray-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center">
             
+            {/* Progress Bar (Hardware Accelerated) */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gray-800 z-30">
+              <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-75 ease-linear" style={{ width: `${playProgress}%` }}></div>
+            </div>
+
+            {/* Scale-based CSS & Force Key Remount (Super Mulus) */}
             <iframe 
-              src={`https://www.youtube.com/embed/${playingVideo.videoId}?autoplay=1&mute=0&controls=0&start=${playingVideo.startTime}&end=${playingVideo.endTime}&loop=1&playlist=${playingVideo.videoId}&rel=0&modestbranding=1`}
-              className="absolute top-1/2 left-1/2 w-[350%] h-[100%] max-w-none -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              key={iframeKey}
+              src={`https://www.youtube.com/embed/${playingVideo.videoId}?autoplay=1&mute=0&controls=0&start=${playingVideo.startTime}&end=${playingVideo.endTime}&playsinline=1&rel=0&modestbranding=1`}
+              className="absolute top-1/2 left-1/2 w-full h-full max-w-none -translate-x-1/2 -translate-y-1/2 scale-[3.5] sm:scale-[3.1] pointer-events-none"
               allow="autoplay; encrypted-media"
               title="Result Video"
             />
             
-            <div className="absolute top-0 inset-x-0 p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none z-10">
+            <div className="absolute top-0 inset-x-0 p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none z-10 pt-8">
               <span className="bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider mb-2 inline-block shadow-lg">Preview Result</span>
               <h3 className="text-white font-bold leading-tight drop-shadow-md">{playingVideo.title}</h3>
             </div>
