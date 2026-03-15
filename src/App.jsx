@@ -6,7 +6,7 @@ import {
   Clock, FileVideo, ChevronLeft, X,
   Type, BarChart2, Settings, MessageSquare, Save,
   Wand2, Focus, Image as ImageIcon, MicOff, ToggleRight, ToggleLeft,
-  BrainCircuit, ChevronDown, Gauge, Cpu, Key
+  BrainCircuit, ChevronDown, Gauge, Cpu, Key, Check
 } from 'lucide-react';
 
 export default function App() {
@@ -18,7 +18,7 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('podcast');
   
-  // State Pengaturan Mesin AI & API Key (Menggunakan API Key Default Anda)
+  // State Pengaturan Mesin AI & API Key
   const [showAISettings, setShowAISettings] = useState(false);
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('shortsmagic_api_key') || 'AIzaSyB3Pj3PYWtpFV_H1TqJMI83tBIs44egoYg');
   const [globalAISettings, setGlobalAISettings] = useState({
@@ -27,6 +27,12 @@ export default function App() {
     focus: 'viral' 
   });
 
+  // State untuk Fitur Tes Koneksi API
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  const [keyStatus, setKeyStatus] = useState(null); // 'success' | 'error' | null
+  const [keyMessage, setKeyMessage] = useState('');
+
+  // Auto-save API Key ke Local Storage
   useEffect(() => {
     localStorage.setItem('shortsmagic_api_key', apiKey);
   }, [apiKey]);
@@ -58,6 +64,48 @@ export default function App() {
     { id: 'motivation', name: 'Motivasi Viral', desc: 'Teks tebal, efek zoom', icon: <Sparkles className="w-6 h-6" /> },
   ];
 
+  // --- FUNGSI TES KONEKSI API GEMINI ---
+  const testApiKey = async () => {
+    if (!apiKey || apiKey.trim() === '') {
+      setKeyStatus('error');
+      setKeyMessage('API Key tidak boleh kosong.');
+      return;
+    }
+
+    setIsTestingKey(true);
+    setKeyStatus(null);
+    setKeyMessage('');
+
+    try {
+      // Melakukan request ringan ke Gemini API untuk memverifikasi Key
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': apiKey.trim()
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "Hello, just testing connection. Reply 'OK'." }] }]
+        })
+      });
+
+      if (response.ok) {
+        setKeyStatus('success');
+        setKeyMessage('Koneksi berhasil! API Key valid dan siap digunakan.');
+      } else {
+        const errorData = await response.json();
+        setKeyStatus('error');
+        setKeyMessage(errorData.error?.message || 'API Key tidak valid atau terjadi kesalahan otorisasi.');
+      }
+    } catch (error) {
+      setKeyStatus('error');
+      setKeyMessage('Gagal menghubungi server Google. Periksa koneksi internet Anda.');
+    } finally {
+      setIsTestingKey(false);
+    }
+  };
+
+  // Efek 1: Progress Bar & Perfect Looping
   useEffect(() => {
     let timer;
     if (playingVideo || isPlayingStudio) {
@@ -83,6 +131,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, [playingVideo, isPlayingStudio, iframeKey, editingShort]);
 
+  // Efek 2: Sinkronisasi Subtitle Matematis
   useEffect(() => {
     let interval;
     if (playingVideo || isPlayingStudio) {
@@ -191,7 +240,7 @@ export default function App() {
       
       const shortsMultiplier = globalAISettings.mode === 'fast' ? 300 : (globalAISettings.mode === 'quality' ? 120 : 180);
       let estimatedShortsCount = Math.max(2, Math.ceil(mockDurationSec / shortsMultiplier));
-      if (estimatedShortsCount > 4) estimatedShortsCount = 4; // Batasi max 4 agar API tidak kelebihan beban di frontend
+      if (estimatedShortsCount > 4) estimatedShortsCount = 4; // Batasi max 4 agar AI lebih stabil responnya di Frontend
 
       setVideoMetadata({
         id: videoId,
@@ -205,7 +254,7 @@ export default function App() {
     }, 1500);
   };
 
-  // --- INTEGRASI REAL API GEMINI ---
+  // --- INTEGRASI REAL API GEMINI (Pemotongan Video AI) ---
   const handleGenerate = async () => {
     setProcessState('processing');
     setProgress(10);
@@ -213,14 +262,13 @@ export default function App() {
     setGeneratedShorts([]);
 
     try {
-      // 1. Menyusun Prompt untuk Gemini
       const aiPrompt = `
         Anda adalah asisten AI Video Editor Profesional (ShortsMagic). Saya memiliki video YouTube dengan durasi total ${videoMetadata.durationSec} detik.
         Fokus utama potongan: ${globalAISettings.focus}.
         Buatkan HANYA ${videoMetadata.estimatedShorts} ide potongan video Shorts yang paling berpotensi viral dari video ini.
 
         KEMBALIKAN BALASAN HANYA DALAM BENTUK JSON ARRAY MURNI TANPA MARKDOWN ATAU TEKS LAIN.
-        Struktur Object per potongan (buat ${videoMetadata.estimatedShorts} object):
+        Struktur Object per potongan (buat tepat ${videoMetadata.estimatedShorts} object di dalam array):
         [
           {
             "title": "Judul Clickbait (Max 40 huruf)",
@@ -241,12 +289,11 @@ export default function App() {
       setProgress(30);
       setProgressText('Gemini sedang merancang struktur video & transkrip...');
 
-      // 2. Memanggil Gemini API menggunakan Fetch
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-goog-api-key': apiKey
+          'X-goog-api-key': apiKey.trim()
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: aiPrompt }] }]
@@ -254,24 +301,23 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Gagal tersambung'}`);
       }
 
       const data = await response.json();
       setProgress(75);
       setProgressText('Menerjemahkan instruksi AI ke antarmuka aplikasi...');
 
-      // 3. Parsing data JSON dari balasan Gemini
       let textResponse = data.candidates[0].content.parts[0].text;
       
-      // Membersihkan markdown ```json jika Gemini menambahkannya
+      // Membersihkan markdown dari respon Gemini
       textResponse = textResponse.replace(/```json/gi, '').replace(/```/gi, '').trim();
       const geminiResults = JSON.parse(textResponse);
 
       setProgress(90);
       setProgressText('Menyiapkan pemutar video pintar & template...');
 
-      // 4. Memformat data untuk State React
       const finalResults = geminiResults.map((item, index) => ({
         id: index + 1,
         title: item.title || `Part ${index + 1} - Hook Viral`,
@@ -299,8 +345,8 @@ export default function App() {
 
     } catch (err) {
       console.error(err);
-      setErrorMsg("Gagal memproses dengan Gemini AI. Pastikan API Key valid atau coba beberapa saat lagi.");
-      setProcessState('ready'); // Kembali ke tampilan siap
+      setErrorMsg(`Gagal memproses AI: ${err.message}. Pastikan API Key valid atau batas kuota Anda belum habis.`);
+      setProcessState('ready'); // Kembali ke tampilan siap agar user bisa edit API Key
     }
   };
 
@@ -445,10 +491,12 @@ export default function App() {
                 <BrainCircuit className="w-4 h-4 text-purple-500" /> Pengaturan Mesin AI & API Key
               </h4>
               <div className="flex items-center gap-3">
-                {apiKey ? (
-                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> API Key Tersimpan</span>
+                {apiKey && keyStatus === 'success' ? (
+                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Terkoneksi</span>
+                ) : apiKey ? (
+                  <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">Key Tersimpan</span>
                 ) : (
-                  <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">API Key Kosong</span>
+                  <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">Key Kosong</span>
                 )}
                 {showAISettings ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
               </div>
@@ -457,20 +505,39 @@ export default function App() {
             {showAISettings && (
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 
+                {/* --- BLOK INPUT API KEY & TES KONEKSI --- */}
                 <div className="bg-gray-900 border border-purple-500/30 shadow-inner shadow-purple-500/5 p-4 rounded-lg sm:col-span-2">
                   <label className="text-xs text-gray-300 font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
                     <Key className="w-4 h-4 text-purple-400"/> API Key Utama (Google Gemini)
                   </label>
-                  <div className="relative">
+                  <div className="relative mt-2">
                     <input 
                       type="password"
                       value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
+                        setKeyStatus(null);
+                        setKeyMessage('');
+                      }}
                       placeholder="Masukkan API Key (misal: AIzaSy...)"
-                      className="w-full bg-gray-950 text-white text-sm border border-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-lg p-3 outline-none transition"
+                      className="w-full bg-gray-950 text-white text-sm border border-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-lg p-3 outline-none transition pr-[110px]"
                     />
+                    <button 
+                      onClick={testApiKey}
+                      disabled={isTestingKey || !apiKey.trim()}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-gray-700 text-white text-xs font-bold rounded-md transition flex items-center gap-1"
+                    >
+                      {isTestingKey ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Tes Koneksi'}
+                    </button>
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-2">API Key Anda akan langsung dikirimkan ke server Google Gemini melalui Frontend, tidak disimpan di server kami.</p>
+                  
+                  {/* Status Pesan Tes Koneksi */}
+                  {keyStatus === 'success' && <p className="text-xs text-green-400 mt-3 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> {keyMessage}</p>}
+                  {keyStatus === 'error' && <p className="text-xs text-red-400 mt-3 flex items-center gap-1"><AlertCircle className="w-4 h-4"/> {keyMessage}</p>}
+                  
+                  <p className="text-[11px] text-gray-500 mt-3 flex items-center gap-1">
+                    <Save className="w-3 h-3"/> Tersimpan otomatis secara lokal di perangkat Anda.
+                  </p>
                 </div>
 
                 <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
@@ -522,7 +589,7 @@ export default function App() {
                 <div className="relative flex-1">
                   <input 
                     type="text" 
-                    placeholder="[https://www.youtube.com/watch?v=](https://www.youtube.com/watch?v=)..." 
+                    placeholder="https://www.youtube.com/watch?v=..." 
                     value={youtubeUrl}
                     onChange={(e) => setYoutubeUrl(e.target.value)}
                     className="w-full bg-gray-950 border border-gray-800 text-white px-5 py-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition shadow-inner"
@@ -601,7 +668,7 @@ export default function App() {
 
               <div className="mt-8 pt-4 flex flex-col md:flex-row items-center justify-between border-t border-gray-800 gap-4">
                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <Key className="w-4 h-4 text-green-500" /> API Key Gemini Terhubung
+                    <Key className="w-4 h-4 text-green-500" /> API Key Gemini Siap
                  </div>
                 <button 
                   onClick={handleGenerate}
