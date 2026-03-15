@@ -5,7 +5,8 @@ import {
   LogOut, User, Video, Loader2, Sparkles, AlertCircle,
   Clock, FileVideo, ChevronLeft, X,
   Type, BarChart2, Settings, MessageSquare, Save,
-  Wand2, Focus, Image as ImageIcon, MicOff, ToggleRight, ToggleLeft
+  Wand2, Focus, Image as ImageIcon, MicOff, ToggleRight, ToggleLeft,
+  BrainCircuit, ChevronDown, Gauge, Cpu
 } from 'lucide-react';
 
 export default function App() {
@@ -17,6 +18,14 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('podcast');
   
+  // State Pengaturan Mesin AI (BARU)
+  const [showAISettings, setShowAISettings] = useState(false);
+  const [globalAISettings, setGlobalAISettings] = useState({
+    mode: 'balanced', // fast, balanced, quality
+    hardwareAccel: true,
+    focus: 'viral' // viral, comedy, education
+  });
+  
   // State Proses
   const [processState, setProcessState] = useState('idle'); 
   const [videoMetadata, setVideoMetadata] = useState(null);
@@ -26,15 +35,15 @@ export default function App() {
   
   // State Fitur Pro Studio
   const [editingShort, setEditingShort] = useState(null);
-  const [studioTab, setStudioTab] = useState('template'); // 'template', 'subtitles', 'analytics', 'magic'
+  const [studioTab, setStudioTab] = useState('template');
   const [editedTranscript, setEditedTranscript] = useState([]);
   
-  // State Fitur Pemutar Video (Super Presisi)
+  // State Fitur Pemutar Video
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isPlayingStudio, setIsPlayingStudio] = useState(false);
   const [activeSubtitleIndex, setActiveSubtitleIndex] = useState(0);
   const [playProgress, setPlayProgress] = useState(0);
-  const [iframeKey, setIframeKey] = useState(0); // Kunci rahasia untuk perfect-loop
+  const [iframeKey, setIframeKey] = useState(0);
 
   // State Fitur Download Simulasi
   const [downloadState, setDownloadState] = useState({ id: null, progress: 0 });
@@ -45,7 +54,7 @@ export default function App() {
     { id: 'motivation', name: 'Motivasi Viral', desc: 'Teks tebal, efek zoom', icon: <Sparkles className="w-6 h-6" /> },
   ];
 
-  // Efek 1: Progress Bar & Perfect Looping (Tanpa Patah-Patah)
+  // Efek 1: Progress Bar & Perfect Looping
   useEffect(() => {
     let timer;
     if (playingVideo || isPlayingStudio) {
@@ -53,13 +62,12 @@ export default function App() {
       if (!activeVideo) return;
 
       const durationMs = activeVideo.durationSec * 1000;
-      const intervalMs = 50; // Update sangat cepat agar bar mulus
+      const intervalMs = 50; 
 
       timer = setInterval(() => {
         setPlayProgress((prev) => {
           const next = prev + (intervalMs / durationMs) * 100;
           if (next >= 100) {
-            // Saat durasi habis, paksa pemutar YouTube reset seketika ke detik awal (Perfect Loop)
             setIframeKey(k => k + 1);
             return 0;
           }
@@ -72,7 +80,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, [playingVideo, isPlayingStudio, iframeKey, editingShort]);
 
-  // Efek 2: Sinkronisasi Subtitle Matematis (Tepat Waktu)
+  // Efek 2: Sinkronisasi Subtitle Matematis
   useEffect(() => {
     let interval;
     if (playingVideo || isPlayingStudio) {
@@ -80,7 +88,6 @@ export default function App() {
       const transcript = playingVideo ? playingVideo.transcript : editedTranscript;
       
       if (activeVideo && transcript && transcript.length > 0) {
-        // Durasi tiap kata dihitung persis berdasarkan panjang video & jumlah subtitle
         const timePerSubtitle = (activeVideo.durationSec * 1000) / transcript.length;
         
         interval = setInterval(() => {
@@ -93,7 +100,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [playingVideo, isPlayingStudio, editedTranscript, editingShort, iframeKey]);
 
-  // Ekstrak ID YouTube dari Link
   const extractYouTubeID = (url) => {
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = url.match(regExp);
@@ -130,39 +136,37 @@ export default function App() {
     setPlayProgress(0);
   };
 
-  // Simulasi Fitur Download Video Fisik
   const handleDownload = (short) => {
-    if (downloadState.id) return; // Mencegah klik download ganda
+    if (downloadState.id) return; 
     setDownloadState({ id: short.id, progress: 0 });
     
     let currentProgress = 0;
+    // Jika hardware acceleration nyala, simulasi download lebih cepat
+    const renderSpeed = globalAISettings.hardwareAccel ? 20 : 10;
+    
     const interval = setInterval(() => {
-      // Mensimulasikan proses rendering video di server AI
-      currentProgress += Math.random() * 15;
+      currentProgress += Math.random() * renderSpeed;
       
       if (currentProgress >= 100) {
         currentProgress = 100;
         clearInterval(interval);
         
-        // Buat file simulasi (.mp4) agar browser memicu proses Download asli ke Komputer/HP
-        const blob = new Blob(['(File Simulasi) Ini adalah video vertikal hasil dari ShortsMagic.AI. Di tahap produksi, file ini berisi MP4 asli.'], { type: 'video/mp4' });
+        const blob = new Blob(['(File Simulasi) Ini adalah video vertikal hasil dari ShortsMagic.AI.'], { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `ShortsMagic_Part${short.id}_${short.durationSec}detik.mp4`; // Format nama file
+        a.download = `ShortsMagic_Part${short.id}_${short.durationSec}detik.mp4`; 
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        // Reset state tombol setelah selesai mengunduh
         setTimeout(() => setDownloadState({ id: null, progress: 0 }), 1500);
       }
       setDownloadState({ id: short.id, progress: Math.floor(currentProgress) });
-    }, 400); // Kecepatan render
+    }, 400); 
   };
 
-  // 1. FASE ANALISIS (Simulasi API)
   const handleAnalyzeVideo = async () => {
     const videoId = extractYouTubeID(youtubeUrl);
     if (!videoId) {
@@ -176,7 +180,10 @@ export default function App() {
       const mockDurationSec = Math.floor(Math.random() * (3600 - 300 + 1) + 300);
       const minutes = Math.floor(mockDurationSec / 60);
       const seconds = mockDurationSec % 60;
-      const estimatedShortsCount = Math.max(2, Math.ceil(mockDurationSec / 180));
+      
+      // Jika mode Cepat, AI hanya mengambil sedikit sampel untuk diolah
+      const shortsMultiplier = globalAISettings.mode === 'fast' ? 300 : (globalAISettings.mode === 'quality' ? 120 : 180);
+      const estimatedShortsCount = Math.max(2, Math.ceil(mockDurationSec / shortsMultiplier));
 
       setVideoMetadata({
         id: videoId,
@@ -190,7 +197,6 @@ export default function App() {
     }, 2000);
   };
 
-  // 2. FASE GENERATE SHORTS (Simulasi AI Processing)
   const handleGenerate = async () => {
     setProcessState('processing');
     setProgress(0);
@@ -200,9 +206,9 @@ export default function App() {
       'Mendownload video utama (1080p)...',
       'Whisper AI sedang men-transkrip audio...',
       'Membersihkan keheningan & jeda suara (Silence Removal)...',
-      'Mendeteksi momen viral dengan engagement tinggi...',
+      `Mendeteksi momen dengan fokus: ${globalAISettings.focus === 'viral' ? 'Engagement Tinggi' : globalAISettings.focus}...`,
       'Melacak pergerakan wajah (Smart Face Tracking)...',
-      'Mencari footage B-Roll yang relevan dari transkrip...',
+      'Mencari footage B-Roll yang relevan...',
       'Menyelesaikan ekspor video...'
     ];
 
@@ -210,8 +216,12 @@ export default function App() {
     
     const interval = setInterval(() => {
       setProgress((prev) => {
-        const increment = videoMetadata.durationSec > 1800 ? 2 : 5; 
-        const next = prev + increment;
+        // Kecepatan proses bergantung pada setting Mode Mesin AI
+        let speedMultiplier = 5;
+        if (globalAISettings.mode === 'fast') speedMultiplier = 12;
+        if (globalAISettings.mode === 'quality') speedMultiplier = 2;
+        
+        const next = prev + speedMultiplier;
         
         if (next >= (currentStep + 1) * (100 / steps.length) && currentStep < steps.length - 1) {
           currentStep++;
@@ -237,10 +247,9 @@ export default function App() {
               startTime: randomStart,
               endTime: exactEndTime,
               appliedTemplate: selectedTemplate,
-              // Data AI Settings Baru
               aiSettings: {
                 faceTracking: true,
-                autoBRoll: i % 2 === 0, // Dinyalakan acak sebagai demo
+                autoBRoll: i % 2 === 0, 
                 silenceRemoval: true
               },
               transcript: [
@@ -267,7 +276,6 @@ export default function App() {
     }, 400); 
   };
 
-  // --- KOMPONEN NAVIGASI ---
   const Navbar = () => (
     <nav className="flex items-center justify-between p-6 bg-gray-950 border-b border-gray-800 sticky top-0 z-40 shadow-xl shadow-black/20">
       <div 
@@ -303,11 +311,10 @@ export default function App() {
     </nav>
   );
 
-  // --- KOMPONEN LANDING PAGE ---
   const LandingView = () => (
     <div className="flex flex-col items-center justify-center min-h-[85vh] px-4 text-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-gray-950">
       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 text-purple-400 font-medium text-sm mb-8 border border-purple-500/20 backdrop-blur-sm">
-        <Sparkles className="w-4 h-4" /> Engine V2.0 - Mulus Tanpa Patah-Patah
+        <Sparkles className="w-4 h-4" /> Engine V2.0 - Akselerasi Perangkat Keras Dioptimalkan
       </div>
       <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight max-w-4xl tracking-tight">
         Satu Video Panjang, <br/>
@@ -316,7 +323,7 @@ export default function App() {
         </span>
       </h1>
       <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl leading-relaxed">
-        Masukkan link YouTube durasi berapapun. AI kami mendeteksi durasi, menemukan momen terbaik, memotong, dan menambahkan subtitle otomatis.
+        Masukkan link YouTube durasi berapapun. AI kami mendeteksi durasi, menemukan momen terbaik, memotong, dan menambahkan subtitle otomatis dengan mulus.
       </p>
       <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
         <button 
@@ -329,7 +336,6 @@ export default function App() {
     </div>
   );
 
-  // --- KOMPONEN PRICING ---
   const PricingView = () => (
     <div className="max-w-6xl mx-auto py-16 px-4">
       <div className="text-center mb-16">
@@ -384,7 +390,6 @@ export default function App() {
     </div>
   );
 
-  // --- KOMPONEN DASHBOARD (WORKSPACE) ---
   const DashboardView = () => (
     <div className="max-w-6xl mx-auto py-8 px-4">
       
@@ -456,7 +461,7 @@ export default function App() {
               <div className="bg-gray-950 p-4 rounded-xl border border-gray-800">
                 <p className="text-gray-400 text-xs mb-1 uppercase tracking-wider font-semibold">Estimasi AI</p>
                 <p className="text-xl font-bold text-purple-400 flex items-center gap-2">
-                  ~{videoMetadata.estimatedShorts} Video Shorts
+                  ~{globalAISettings.mode === 'fast' ? Math.ceil(videoMetadata.estimatedShorts / 2) : videoMetadata.estimatedShorts} Video Shorts
                 </p>
               </div>
             </div>
@@ -485,9 +490,70 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+
+                {/* --- FITUR BARU: PENGATURAN MESIN AI LOKAL --- */}
+                <div className="mt-6 bg-gray-950/60 rounded-xl border border-gray-800 p-4 transition-all">
+                  <div 
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => setShowAISettings(!showAISettings)}
+                  >
+                    <h4 className="text-white font-semibold flex items-center gap-2 text-sm">
+                      <BrainCircuit className="w-4 h-4 text-purple-500" /> Pengaturan Mesin AI (Kelancaran Aplikasi)
+                    </h4>
+                    {showAISettings ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                  </div>
+
+                  {showAISettings && (
+                    <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      
+                      {/* Mode Performa */}
+                      <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
+                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Gauge className="w-3 h-3"/> Mode Proses</label>
+                        <select 
+                          value={globalAISettings.mode}
+                          onChange={(e) => setGlobalAISettings({...globalAISettings, mode: e.target.value})}
+                          className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
+                        >
+                          <option value="fast">🚀 Super Cepat (Draft)</option>
+                          <option value="balanced">⚖️ Seimbang (Rekomendasi)</option>
+                          <option value="quality">🌟 Kualitas Studio (Lambat)</option>
+                        </select>
+                      </div>
+
+                      {/* Hardware Acceleration */}
+                      <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
+                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Cpu className="w-3 h-3"/> Hardware Accel</label>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-sm text-gray-300">Gunakan GPU (Anti Lag)</span>
+                          <button 
+                            onClick={() => setGlobalAISettings({...globalAISettings, hardwareAccel: !globalAISettings.hardwareAccel})}
+                          >
+                            {globalAISettings.hardwareAccel ? <ToggleRight className="w-8 h-8 text-purple-500" /> : <ToggleLeft className="w-8 h-8 text-gray-600" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Fokus Algoritma AI */}
+                      <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg sm:col-span-2">
+                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Focus className="w-3 h-3"/> Fokus Target AI</label>
+                        <select 
+                          value={globalAISettings.focus}
+                          onChange={(e) => setGlobalAISettings({...globalAISettings, focus: e.target.value})}
+                          className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
+                        >
+                          <option value="viral">🔥 Momen Paling Viral / Engagement</option>
+                          <option value="comedy">😂 Komedi & Reaksi Lucu</option>
+                          <option value="education">📚 Edukasi / Poin Penting</option>
+                        </select>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+                {/* ------------------------------------------- */}
               </div>
 
-              <div className="mt-8 pt-4 flex items-center justify-end border-t border-gray-800">
+              <div className="mt-6 pt-4 flex items-center justify-end border-t border-gray-800">
                 <button 
                   onClick={handleGenerate}
                   className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-purple-500/30 transition flex items-center gap-2 w-full md:w-auto justify-center"
@@ -505,18 +571,21 @@ export default function App() {
           <div className="max-w-xl mx-auto">
             <div className="relative w-24 h-24 mx-auto mb-8">
               <div className="absolute inset-0 border-4 border-gray-800 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-purple-500 rounded-full border-t-transparent animate-spin"></div>
+              <div className="absolute inset-0 border-4 border-purple-500 rounded-full border-t-transparent animate-spin" style={{ animationDuration: globalAISettings.mode === 'fast' ? '0.5s' : '1s' }}></div>
               <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white">
                 {progress}%
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-white mb-2">AI Sedang Memproses Video...</h3>
+            <h3 className="text-2xl font-bold text-white mb-2">
+              {globalAISettings.mode === 'fast' ? 'Proses Cepat Sedang Berjalan...' : 'AI Sedang Memproses Video...'}
+            </h3>
             <p className="text-purple-400 font-medium mb-6 animate-pulse">{progressText}</p>
             
             <div className="bg-gray-950 rounded-xl p-4 text-left border border-gray-800 flex items-center gap-4">
                <FileVideo className="text-gray-600 w-8 h-8" />
                <div>
-                 <p className="text-gray-400 text-sm">Mempersiapkan <strong className="text-white">{videoMetadata.estimatedShorts}</strong> potongan video vertikal.</p>
+                 <p className="text-gray-400 text-sm">Mempersiapkan <strong className="text-white">{globalAISettings.mode === 'fast' ? Math.ceil(videoMetadata.estimatedShorts / 2) : videoMetadata.estimatedShorts}</strong> potongan video vertikal.</p>
+                 <p className="text-xs text-green-500 mt-1">Status GPU: {globalAISettings.hardwareAccel ? 'Aktif (Rendering Optimal)' : 'Non-Aktif'}</p>
                </div>
             </div>
           </div>
@@ -567,7 +636,6 @@ export default function App() {
                   <h4 className="text-white text-sm font-bold leading-snug line-clamp-2 mb-3 h-10">{short.title}</h4>
                   <div>
                     <div className="flex gap-2">
-                      {/* Tombol Berubah Saat Diklik Download */}
                       {downloadState.id === short.id ? (
                         <button disabled className="flex-1 py-2 bg-purple-600 text-white text-sm font-bold rounded-lg flex justify-center items-center gap-2 transition cursor-wait shadow-inner">
                           <Loader2 className="w-4 h-4 animate-spin" /> {downloadState.progress < 100 ? `Merender ${downloadState.progress}%` : 'Selesai!'}
@@ -609,7 +677,6 @@ export default function App() {
               
               <div className="relative z-10 w-full max-w-[280px] aspect-[9/16] bg-gray-900 border border-gray-700 rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col items-center justify-center text-center group">
                 
-                {/* Progress Bar */}
                 {isPlayingStudio && (
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-30">
                     <div className="h-full bg-purple-500 transition-all duration-75 ease-linear" style={{ width: `${playProgress}%` }}></div>
@@ -618,7 +685,6 @@ export default function App() {
 
                 {isPlayingStudio ? (
                   <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black">
-                    {/* Simulasi B-Roll Overlay (Jika B-Roll aktif dan ada datanya) */}
                     {editingShort.aiSettings?.autoBRoll && editedTranscript[activeSubtitleIndex]?.bRoll ? (
                       <div className="absolute inset-0 z-10 bg-black animate-in fade-in duration-300">
                         <img src={editedTranscript[activeSubtitleIndex].bRoll} alt="B-Roll" className="w-full h-full object-cover opacity-90 scale-105" />
@@ -628,8 +694,8 @@ export default function App() {
                       </div>
                     ) : null}
 
-                    {/* Efek Smart Framing (Animasi geser pelan seolah tracking wajah) */}
-                    <div className={`absolute inset-0 w-full h-full ${editingShort.aiSettings?.faceTracking ? 'animate-[pan_10s_ease-in-out_infinite_alternate]' : ''}`}>
+                    {/* GPU Hardware Acceleration Applied via Scale for Smooth Playback */}
+                    <div className={`absolute inset-0 w-full h-full ${editingShort.aiSettings?.faceTracking ? 'animate-[pan_10s_ease-in-out_infinite_alternate]' : ''} ${globalAISettings.hardwareAccel ? 'transform-gpu' : ''}`}>
                       <iframe 
                         key={iframeKey}
                         src={`https://www.youtube.com/embed/${editingShort.videoId}?autoplay=1&mute=1&controls=0&start=${editingShort.startTime}&end=${editingShort.endTime}&playsinline=1&rel=0&modestbranding=1`}
@@ -645,7 +711,6 @@ export default function App() {
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none"></div>
                 
-                {/* Icon Face Tracking Active Indicator */}
                 {editingShort.aiSettings?.faceTracking && (
                   <div className="absolute top-6 right-4 z-20 opacity-50">
                     <Focus className="w-6 h-6 text-green-400 animate-pulse" />
@@ -701,116 +766,42 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                
-                {/* TAB BARU: AI MAGIC TOOLS */}
                 {studioTab === 'magic' && (
                   <div className="space-y-6 animate-in fade-in duration-300">
                     <p className="text-gray-400 text-sm mb-2">Tingkatkan kualitas retensi video dengan penyuntingan berbasis AI generatif.</p>
                     
-                    {/* Face Tracking Toggle */}
                     <div className="bg-gray-950 p-5 rounded-xl border border-gray-800 flex items-center justify-between gap-4">
                       <div>
                         <h4 className="font-bold text-white flex items-center gap-2"><Focus className="w-5 h-5 text-blue-400" /> Smart Face Tracking</h4>
                         <p className="text-sm text-gray-400 mt-1">AI menggeser crop 9:16 agar wajah selalu di tengah frame.</p>
                       </div>
-                      <button 
-                        onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, faceTracking: !editingShort.aiSettings?.faceTracking}})}
-                      >
+                      <button onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, faceTracking: !editingShort.aiSettings?.faceTracking}})}>
                         {editingShort.aiSettings?.faceTracking ? <ToggleRight className="w-10 h-10 text-purple-500" /> : <ToggleLeft className="w-10 h-10 text-gray-600" />}
                       </button>
                     </div>
 
-                    {/* Auto B-Roll Toggle */}
                     <div className="bg-gray-950 p-5 rounded-xl border border-gray-800 flex items-center justify-between gap-4">
                       <div>
                         <h4 className="font-bold text-white flex items-center gap-2"><ImageIcon className="w-5 h-5 text-emerald-400" /> Auto B-Roll (Visual)</h4>
                         <p className="text-sm text-gray-400 mt-1">Menganalisis teks dan menempelkan video ilustrasi di momen penting.</p>
                       </div>
-                      <button 
-                        onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, autoBRoll: !editingShort.aiSettings?.autoBRoll}})}
-                      >
+                      <button onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, autoBRoll: !editingShort.aiSettings?.autoBRoll}})}>
                         {editingShort.aiSettings?.autoBRoll ? <ToggleRight className="w-10 h-10 text-purple-500" /> : <ToggleLeft className="w-10 h-10 text-gray-600" />}
                       </button>
                     </div>
 
-                    {/* Silence Removal Toggle */}
                     <div className="bg-gray-950 p-5 rounded-xl border border-gray-800 flex items-center justify-between gap-4">
                       <div>
                         <h4 className="font-bold text-white flex items-center gap-2"><MicOff className="w-5 h-5 text-red-400" /> Remove Silences (Jump Cut)</h4>
                         <p className="text-sm text-gray-400 mt-1">Memotong otomatis jeda nafas, gumaman "umm", dan ruang kosong.</p>
                       </div>
-                      <button 
-                        onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, silenceRemoval: !editingShort.aiSettings?.silenceRemoval}})}
-                      >
+                      <button onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, silenceRemoval: !editingShort.aiSettings?.silenceRemoval}})}>
                         {editingShort.aiSettings?.silenceRemoval ? <ToggleRight className="w-10 h-10 text-purple-500" /> : <ToggleLeft className="w-10 h-10 text-gray-600" />}
                       </button>
                     </div>
                   </div>
                 )}
 
-                {isPlayingStudio ? (
-                  <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black">
-                    {/* Menggunakan scale CSS hardware acceleration untuk mencegah patah-patah */}
-                    <iframe 
-                      key={iframeKey}
-                      src={`https://www.youtube.com/embed/${editingShort.videoId}?autoplay=1&mute=1&controls=0&start=${editingShort.startTime}&end=${editingShort.endTime}&playsinline=1&rel=0&modestbranding=1`}
-                      className="absolute top-1/2 left-1/2 w-full h-full max-w-none -translate-x-1/2 -translate-y-1/2 scale-[3.5] sm:scale-[3.1] pointer-events-none"
-                      allow="autoplay; encrypted-media"
-                      title="Pro Studio Preview"
-                    />
-                  </div>
-                ) : (
-                  <img src={editingShort.img} alt="Video" className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                )}
-                
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none"></div>
-                
-                {!isPlayingStudio ? (
-                  <button 
-                    onClick={() => { setIsPlayingStudio(true); setPlayProgress(0); setIframeKey(k=>k+1); }}
-                    className="bg-white/20 p-4 rounded-full backdrop-blur-md border border-white/40 group-hover:scale-110 transition relative z-10"
-                  >
-                    <Play className="w-8 h-8 text-white fill-white ml-1" />
-                  </button>
-                ) : (
-                  <button 
-                    onClick={() => setIsPlayingStudio(false)}
-                    className="absolute inset-0 w-full h-full z-10 flex items-center justify-center opacity-0 hover:opacity-100 transition bg-black/40"
-                  >
-                     <span className="bg-white/20 px-4 py-2 rounded-lg backdrop-blur-md border border-white/40 text-white font-bold text-sm">Pause</span>
-                  </button>
-                )}
-                
-                <div className="absolute bottom-16 left-4 right-4 text-center z-20 pointer-events-none">
-                   <p className="text-white font-bold text-[15px] leading-tight drop-shadow-lg shadow-black bg-black/50 inline-block px-3 py-1.5 rounded-lg border border-gray-700/50 backdrop-blur-sm transition-all duration-300">
-                     {editedTranscript.length > 0 ? editedTranscript[activeSubtitleIndex]?.text : ''}
-                   </p>
-                </div>
-              </div>
-
-              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-gray-700 text-white text-xs font-mono z-20">
-                Durasi: {editingShort.duration}
-              </div>
-            </div>
-
-            <div className="w-full md:w-7/12 flex flex-col h-full bg-gray-900">
-              <div className="flex items-center justify-between p-6 border-b border-gray-800 bg-gray-950/50">
-                <div>
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-500" /> Pro Studio</h3>
-                  <p className="text-sm text-gray-400 mt-1 line-clamp-1">{editingShort.title}</p>
-                </div>
-                <button onClick={() => { setEditingShort(null); setIsPlayingStudio(false); }} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="flex px-6 border-b border-gray-800 bg-gray-950/30 overflow-x-auto custom-scrollbar">
-                <button onClick={() => setStudioTab('template')} className={`px-4 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap -mb-[1px] ${studioTab === 'template' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Layout</button>
-                <button onClick={() => setStudioTab('subtitles')} className={`px-4 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap -mb-[1px] ${studioTab === 'subtitles' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Subtitle</button>
-                <button onClick={() => setStudioTab('analytics')} className={`px-4 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap -mb-[1px] ${studioTab === 'analytics' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Insights</button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                 {studioTab === 'template' && (
                   <div className="space-y-4">
                     {templates.map(tpl => (
@@ -899,19 +890,19 @@ export default function App() {
           
           <div className="w-full max-w-[400px] aspect-[9/16] bg-black rounded-3xl overflow-hidden relative border border-gray-800 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center">
             
-            {/* Progress Bar (Hardware Accelerated) */}
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gray-800 z-30">
               <div className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-75 ease-linear" style={{ width: `${playProgress}%` }}></div>
             </div>
 
-            {/* Scale-based CSS & Force Key Remount (Super Mulus) */}
-            <iframe 
-              key={iframeKey}
-              src={`https://www.youtube.com/embed/${playingVideo.videoId}?autoplay=1&mute=0&controls=0&start=${playingVideo.startTime}&end=${playingVideo.endTime}&playsinline=1&rel=0&modestbranding=1`}
-              className="absolute top-1/2 left-1/2 w-full h-full max-w-none -translate-x-1/2 -translate-y-1/2 scale-[3.5] sm:scale-[3.1] pointer-events-none"
-              allow="autoplay; encrypted-media"
-              title="Result Video"
-            />
+            <div className={`absolute inset-0 w-full h-full ${globalAISettings.hardwareAccel ? 'transform-gpu' : ''}`}>
+              <iframe 
+                key={iframeKey}
+                src={`https://www.youtube.com/embed/${playingVideo.videoId}?autoplay=1&mute=0&controls=0&start=${playingVideo.startTime}&end=${playingVideo.endTime}&playsinline=1&rel=0&modestbranding=1`}
+                className="absolute top-1/2 left-1/2 w-full h-full max-w-none -translate-x-1/2 -translate-y-1/2 scale-[3.5] sm:scale-[3.1] pointer-events-none"
+                allow="autoplay; encrypted-media"
+                title="Result Video"
+              />
+            </div>
             
             <div className="absolute top-0 inset-x-0 p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none z-10 pt-8">
               <span className="bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider mb-2 inline-block shadow-lg">Preview Result</span>
