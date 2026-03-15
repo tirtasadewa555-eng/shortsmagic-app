@@ -24,7 +24,8 @@ export default function App() {
   const [globalAISettings, setGlobalAISettings] = useState({
     mode: 'balanced', 
     hardwareAccel: true,
-    focus: 'viral' 
+    focus: 'viral',
+    targetDuration: 30 // BARU: Target durasi spesifik untuk video yang dihasilkan
   });
 
   // State untuk Fitur Tes Koneksi API
@@ -77,7 +78,6 @@ export default function App() {
     setKeyMessage('');
 
     try {
-      // Melakukan request ringan ke Gemini API untuk memverifikasi Key
       const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
         method: 'POST',
         headers: {
@@ -254,7 +254,7 @@ export default function App() {
     }, 1500);
   };
 
-  // --- INTEGRASI REAL API GEMINI (Pemotongan Video AI) ---
+  // --- INTEGRASI REAL API GEMINI (Pemotongan Video Spesifik Durasi) ---
   const handleGenerate = async () => {
     setProcessState('processing');
     setProgress(10);
@@ -265,15 +265,16 @@ export default function App() {
       const aiPrompt = `
         Anda adalah asisten AI Video Editor Profesional (ShortsMagic). Saya memiliki video YouTube dengan durasi total ${videoMetadata.durationSec} detik.
         Fokus utama potongan: ${globalAISettings.focus}.
-        Buatkan HANYA ${videoMetadata.estimatedShorts} ide potongan video Shorts yang paling berpotensi viral dari video ini.
+        Buatkan HANYA ${videoMetadata.estimatedShorts} ide potongan video Shorts yang paling berpotensi viral dari video ini. 
+        PENTING: Masing-masing klip video HARUS berdurasi TEPAT ${globalAISettings.targetDuration} detik.
 
         KEMBALIKAN BALASAN HANYA DALAM BENTUK JSON ARRAY MURNI TANPA MARKDOWN ATAU TEKS LAIN.
         Struktur Object per potongan (buat tepat ${videoMetadata.estimatedShorts} object di dalam array):
         [
           {
             "title": "Judul Clickbait (Max 40 huruf)",
-            "durationSec": <angka acak antara 20 dan 50>,
-            "startTime": <angka detik mulai pemotongan acak, pastikan kurang dari ${videoMetadata.durationSec - 60}>,
+            "durationSec": ${globalAISettings.targetDuration},
+            "startTime": <angka detik mulai pemotongan acak, pastikan kurang dari ${videoMetadata.durationSec - globalAISettings.targetDuration}>,
             "score": "<angka acak 85 sampai 99>%",
             "viralInsights": ["Alasan viral 1", "Alasan viral 2", "Alasan viral 3"],
             "transcript": [
@@ -287,7 +288,7 @@ export default function App() {
       `;
 
       setProgress(30);
-      setProgressText('Gemini sedang merancang struktur video & transkrip...');
+      setProgressText(`Gemini sedang merancang struktur video dengan durasi presisi ${globalAISettings.targetDuration} detik...`);
 
       const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
         method: 'POST',
@@ -318,25 +319,30 @@ export default function App() {
       setProgress(90);
       setProgressText('Menyiapkan pemutar video pintar & template...');
 
-      const finalResults = geminiResults.map((item, index) => ({
-        id: index + 1,
-        title: item.title || `Part ${index + 1} - Hook Viral`,
-        duration: `0:${item.durationSec.toString().padStart(2, '0')}`,
-        durationSec: item.durationSec,
-        score: item.score,
-        img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
-        videoId: videoMetadata.id,
-        startTime: item.startTime,
-        endTime: item.startTime + item.durationSec,
-        appliedTemplate: selectedTemplate,
-        aiSettings: {
-          faceTracking: true,
-          autoBRoll: index % 2 === 0, 
-          silenceRemoval: true
-        },
-        transcript: item.transcript,
-        viralInsights: item.viralInsights
-      }));
+      const finalResults = geminiResults.map((item, index) => {
+        // Memastikan durasinya mengikuti target yang diminta pengguna, jika AI berhalusinasi
+        const clipDuration = item.durationSec || globalAISettings.targetDuration;
+        
+        return {
+          id: index + 1,
+          title: item.title || `Part ${index + 1} - Hook Viral`,
+          duration: `0:${clipDuration.toString().padStart(2, '0')}`,
+          durationSec: clipDuration,
+          score: item.score,
+          img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
+          videoId: videoMetadata.id,
+          startTime: item.startTime,
+          endTime: item.startTime + clipDuration,
+          appliedTemplate: selectedTemplate,
+          aiSettings: {
+            faceTracking: true,
+            autoBRoll: index % 2 === 0, 
+            silenceRemoval: true
+          },
+          transcript: item.transcript,
+          viralInsights: item.viralInsights
+        };
+      });
 
       setTimeout(() => {
         setGeneratedShorts(finalResults);
@@ -563,16 +569,31 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg sm:col-span-2">
+                <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
                   <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Focus className="w-3 h-3"/> Fokus Target AI</label>
                   <select 
                     value={globalAISettings.focus}
                     onChange={(e) => setGlobalAISettings({...globalAISettings, focus: e.target.value})}
                     className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
                   >
-                    <option value="viral">🔥 Momen Paling Viral / Engagement</option>
-                    <option value="comedy">😂 Komedi & Reaksi Lucu</option>
+                    <option value="viral">🔥 Momen Paling Viral</option>
+                    <option value="comedy">😂 Komedi & Lucu</option>
                     <option value="education">📚 Edukasi / Poin Penting</option>
+                  </select>
+                </div>
+
+                {/* --- FITUR BARU: TARGET DURASI --- */}
+                <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
+                  <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Clock className="w-3 h-3"/> Target Durasi Shorts</label>
+                  <select 
+                    value={globalAISettings.targetDuration}
+                    onChange={(e) => setGlobalAISettings({...globalAISettings, targetDuration: parseInt(e.target.value)})}
+                    className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
+                  >
+                    <option value={15}>⏱️ 15 Detik (Sangat Cepat)</option>
+                    <option value={30}>⏱️ 30 Detik (Standar Ideal)</option>
+                    <option value={45}>⏱️ 45 Detik (Bercerita)</option>
+                    <option value={60}>⏱️ 60 Detik (Maksimal)</option>
                   </select>
                 </div>
 
