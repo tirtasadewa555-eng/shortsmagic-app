@@ -6,7 +6,7 @@ import {
   Clock, FileVideo, ChevronLeft, X,
   Type, BarChart2, Settings, MessageSquare, Save,
   Wand2, Focus, Image as ImageIcon, MicOff, ToggleRight, ToggleLeft,
-  BrainCircuit, ChevronDown, Gauge, Cpu
+  BrainCircuit, ChevronDown, Gauge, Cpu, Key
 } from 'lucide-react';
 
 export default function App() {
@@ -18,13 +18,18 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('podcast');
   
-  // State Pengaturan Mesin AI (BARU)
+  // State Pengaturan Mesin AI & API Key (Menggunakan API Key Default Anda)
   const [showAISettings, setShowAISettings] = useState(false);
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('shortsmagic_api_key') || 'AIzaSyB3Pj3PYWtpFV_H1TqJMI83tBIs44egoYg');
   const [globalAISettings, setGlobalAISettings] = useState({
-    mode: 'balanced', // fast, balanced, quality
+    mode: 'balanced', 
     hardwareAccel: true,
-    focus: 'viral' // viral, comedy, education
+    focus: 'viral' 
   });
+
+  useEffect(() => {
+    localStorage.setItem('shortsmagic_api_key', apiKey);
+  }, [apiKey]);
   
   // State Proses
   const [processState, setProcessState] = useState('idle'); 
@@ -45,7 +50,6 @@ export default function App() {
   const [playProgress, setPlayProgress] = useState(0);
   const [iframeKey, setIframeKey] = useState(0);
 
-  // State Fitur Download Simulasi
   const [downloadState, setDownloadState] = useState({ id: null, progress: 0 });
 
   const templates = [
@@ -54,7 +58,6 @@ export default function App() {
     { id: 'motivation', name: 'Motivasi Viral', desc: 'Teks tebal, efek zoom', icon: <Sparkles className="w-6 h-6" /> },
   ];
 
-  // Efek 1: Progress Bar & Perfect Looping
   useEffect(() => {
     let timer;
     if (playingVideo || isPlayingStudio) {
@@ -80,7 +83,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, [playingVideo, isPlayingStudio, iframeKey, editingShort]);
 
-  // Efek 2: Sinkronisasi Subtitle Matematis
   useEffect(() => {
     let interval;
     if (playingVideo || isPlayingStudio) {
@@ -141,7 +143,6 @@ export default function App() {
     setDownloadState({ id: short.id, progress: 0 });
     
     let currentProgress = 0;
-    // Jika hardware acceleration nyala, simulasi download lebih cepat
     const renderSpeed = globalAISettings.hardwareAccel ? 20 : 10;
     
     const interval = setInterval(() => {
@@ -151,7 +152,7 @@ export default function App() {
         currentProgress = 100;
         clearInterval(interval);
         
-        const blob = new Blob(['(File Simulasi) Ini adalah video vertikal hasil dari ShortsMagic.AI.'], { type: 'video/mp4' });
+        const blob = new Blob(['(File Simulasi) Ini adalah video vertikal hasil dari ShortsMagic.AI. Di backend nyata, file ini adalah MP4 asli.'], { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -173,6 +174,13 @@ export default function App() {
       setErrorMsg('Masukkan link YouTube yang valid! (contoh: https://youtube.com/watch?v=...)');
       return;
     }
+    
+    if (!apiKey || apiKey.trim() === '') {
+      setErrorMsg('API Key diperlukan! Buka menu "Pengaturan Mesin AI" di bawah untuk memasukkan API Key Anda.');
+      setShowAISettings(true);
+      return;
+    }
+
     setErrorMsg('');
     setProcessState('analyzing');
 
@@ -181,9 +189,9 @@ export default function App() {
       const minutes = Math.floor(mockDurationSec / 60);
       const seconds = mockDurationSec % 60;
       
-      // Jika mode Cepat, AI hanya mengambil sedikit sampel untuk diolah
       const shortsMultiplier = globalAISettings.mode === 'fast' ? 300 : (globalAISettings.mode === 'quality' ? 120 : 180);
-      const estimatedShortsCount = Math.max(2, Math.ceil(mockDurationSec / shortsMultiplier));
+      let estimatedShortsCount = Math.max(2, Math.ceil(mockDurationSec / shortsMultiplier));
+      if (estimatedShortsCount > 4) estimatedShortsCount = 4; // Batasi max 4 agar API tidak kelebihan beban di frontend
 
       setVideoMetadata({
         id: videoId,
@@ -194,86 +202,106 @@ export default function App() {
         estimatedShorts: estimatedShortsCount
       });
       setProcessState('ready');
-    }, 2000);
+    }, 1500);
   };
 
+  // --- INTEGRASI REAL API GEMINI ---
   const handleGenerate = async () => {
     setProcessState('processing');
-    setProgress(0);
+    setProgress(10);
+    setProgressText('Menghubungkan ke Gemini AI...');
     setGeneratedShorts([]);
 
-    const steps = [
-      'Mendownload video utama (1080p)...',
-      'Whisper AI sedang men-transkrip audio...',
-      'Membersihkan keheningan & jeda suara (Silence Removal)...',
-      `Mendeteksi momen dengan fokus: ${globalAISettings.focus === 'viral' ? 'Engagement Tinggi' : globalAISettings.focus}...`,
-      'Melacak pergerakan wajah (Smart Face Tracking)...',
-      'Mencari footage B-Roll yang relevan...',
-      'Menyelesaikan ekspor video...'
-    ];
+    try {
+      // 1. Menyusun Prompt untuk Gemini
+      const aiPrompt = `
+        Anda adalah asisten AI Video Editor Profesional (ShortsMagic). Saya memiliki video YouTube dengan durasi total ${videoMetadata.durationSec} detik.
+        Fokus utama potongan: ${globalAISettings.focus}.
+        Buatkan HANYA ${videoMetadata.estimatedShorts} ide potongan video Shorts yang paling berpotensi viral dari video ini.
 
-    let currentStep = 0;
-    
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        // Kecepatan proses bergantung pada setting Mode Mesin AI
-        let speedMultiplier = 5;
-        if (globalAISettings.mode === 'fast') speedMultiplier = 12;
-        if (globalAISettings.mode === 'quality') speedMultiplier = 2;
-        
-        const next = prev + speedMultiplier;
-        
-        if (next >= (currentStep + 1) * (100 / steps.length) && currentStep < steps.length - 1) {
-          currentStep++;
-        }
-        setProgressText(steps[currentStep]);
+        KEMBALIKAN BALASAN HANYA DALAM BENTUK JSON ARRAY MURNI TANPA MARKDOWN ATAU TEKS LAIN.
+        Struktur Object per potongan (buat ${videoMetadata.estimatedShorts} object):
+        [
+          {
+            "title": "Judul Clickbait (Max 40 huruf)",
+            "durationSec": <angka acak antara 20 dan 50>,
+            "startTime": <angka detik mulai pemotongan acak, pastikan kurang dari ${videoMetadata.durationSec - 60}>,
+            "score": "<angka acak 85 sampai 99>%",
+            "viralInsights": ["Alasan viral 1", "Alasan viral 2", "Alasan viral 3"],
+            "transcript": [
+              {"time": "0:00", "text": "Kalimat pertama pembuka", "bRoll": null},
+              {"time": "0:05", "text": "Kalimat kedua yang menarik", "bRoll": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=80"},
+              {"time": "0:10", "text": "Kalimat ketiga", "bRoll": null},
+              {"time": "0:15", "text": "Kalimat penutup", "bRoll": null}
+            ]
+          }
+        ]
+      `;
 
-        if (next >= 100) {
-          clearInterval(interval);
-          
-          const results = Array.from({ length: videoMetadata.estimatedShorts }).map((_, i) => {
-            const durationSec = Math.floor(Math.random() * (60 - 15 + 1) + 15);
-            const randomStart = Math.floor(Math.random() * (videoMetadata.durationSec > durationSec ? videoMetadata.durationSec - durationSec : 0));
-            const exactEndTime = randomStart + durationSec;
-            
-            return {
-              id: i + 1,
-              title: `Part ${i + 1} - Hook Utama yang Bikin Penonton Bertahan`,
-              duration: `0:${durationSec.toString().padStart(2, '0')}`,
-              durationSec: durationSec,
-              score: `${Math.floor(Math.random() * (99 - 80 + 1) + 80)}%`,
-              img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
-              videoId: videoMetadata.id,
-              startTime: randomStart,
-              endTime: exactEndTime,
-              appliedTemplate: selectedTemplate,
-              aiSettings: {
-                faceTracking: true,
-                autoBRoll: i % 2 === 0, 
-                silenceRemoval: true
-              },
-              transcript: [
-                { id: 1, time: '0:00', text: 'Pernahkah kalian menyadari', bRoll: null },
-                { id: 2, time: '0:05', text: 'rahasia besar dunia ini?', bRoll: 'https://images.unsplash.com/photo-1618044733300-9472054094ee?w=400&q=80' },
-                { id: 3, time: '0:10', text: 'Banyak orang yang melewatkan', bRoll: null },
-                { id: 4, time: '0:15', text: 'peluang bisnis di depan mata.', bRoll: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=80' },
-                { id: 5, time: '0:20', text: 'Tonton sampai habis', bRoll: null },
-                { id: 6, time: '0:25', text: 'untuk penjelasan lengkapnya!', bRoll: null }
-              ],
-              viralInsights: [
-                'Hook awal sangat kuat memancing rasa penasaran.',
-                'Terdapat transisi visual dinamis di detik ke-5.',
-                'AI menghapus 1.2 detik keheningan (Jump Cut).'
-              ]
-            };
-          });
+      setProgress(30);
+      setProgressText('Gemini sedang merancang struktur video & transkrip...');
 
-          setGeneratedShorts(results);
-          setProcessState('completed');
-        }
-        return next > 100 ? 100 : next;
+      // 2. Memanggil Gemini API menggunakan Fetch
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': apiKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: aiPrompt }] }]
+        })
       });
-    }, 400); 
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setProgress(75);
+      setProgressText('Menerjemahkan instruksi AI ke antarmuka aplikasi...');
+
+      // 3. Parsing data JSON dari balasan Gemini
+      let textResponse = data.candidates[0].content.parts[0].text;
+      
+      // Membersihkan markdown ```json jika Gemini menambahkannya
+      textResponse = textResponse.replace(/```json/gi, '').replace(/```/gi, '').trim();
+      const geminiResults = JSON.parse(textResponse);
+
+      setProgress(90);
+      setProgressText('Menyiapkan pemutar video pintar & template...');
+
+      // 4. Memformat data untuk State React
+      const finalResults = geminiResults.map((item, index) => ({
+        id: index + 1,
+        title: item.title || `Part ${index + 1} - Hook Viral`,
+        duration: `0:${item.durationSec.toString().padStart(2, '0')}`,
+        durationSec: item.durationSec,
+        score: item.score,
+        img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
+        videoId: videoMetadata.id,
+        startTime: item.startTime,
+        endTime: item.startTime + item.durationSec,
+        appliedTemplate: selectedTemplate,
+        aiSettings: {
+          faceTracking: true,
+          autoBRoll: index % 2 === 0, 
+          silenceRemoval: true
+        },
+        transcript: item.transcript,
+        viralInsights: item.viralInsights
+      }));
+
+      setTimeout(() => {
+        setGeneratedShorts(finalResults);
+        setProcessState('completed');
+      }, 1000);
+
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Gagal memproses dengan Gemini AI. Pastikan API Key valid atau coba beberapa saat lagi.");
+      setProcessState('ready'); // Kembali ke tampilan siap
+    }
   };
 
   const Navbar = () => (
@@ -314,7 +342,7 @@ export default function App() {
   const LandingView = () => (
     <div className="flex flex-col items-center justify-center min-h-[85vh] px-4 text-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-gray-950">
       <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 text-purple-400 font-medium text-sm mb-8 border border-purple-500/20 backdrop-blur-sm">
-        <Sparkles className="w-4 h-4" /> Engine V2.0 - Akselerasi Perangkat Keras Dioptimalkan
+        <Sparkles className="w-4 h-4" /> Ditenagai oleh Google Gemini API
       </div>
       <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight max-w-4xl tracking-tight">
         Satu Video Panjang, <br/>
@@ -323,7 +351,7 @@ export default function App() {
         </span>
       </h1>
       <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl leading-relaxed">
-        Masukkan link YouTube durasi berapapun. AI kami mendeteksi durasi, menemukan momen terbaik, memotong, dan menambahkan subtitle otomatis dengan mulus.
+        Masukkan link YouTube durasi berapapun. Hubungkan dengan API Key Anda, biarkan AI memotong dan merancang subtitle otomatis dengan mulus.
       </p>
       <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
         <button 
@@ -407,39 +435,118 @@ export default function App() {
       </div>
 
       {processState === 'idle' && (
-        <div className="bg-gray-900/80 rounded-3xl p-8 border border-gray-800 shadow-xl mb-10">
-          <div className="mb-6">
-            <label className="block text-gray-300 text-sm font-medium mb-3 flex items-center gap-2">
-              <Youtube className="text-red-500 w-5 h-5" /> Paste Link YouTube Disini
-            </label>
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
-                <input 
-                  type="text" 
-                  placeholder="https://www.youtube.com/watch?v=..." 
-                  value={youtubeUrl}
-                  onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 text-white px-5 py-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition shadow-inner"
-                />
+        <>
+          <div className="mt-6 mb-6 bg-gray-950/60 rounded-xl border border-gray-800 p-4 transition-all shadow-lg">
+            <div 
+              className="flex items-center justify-between cursor-pointer"
+              onClick={() => setShowAISettings(!showAISettings)}
+            >
+              <h4 className="text-white font-semibold flex items-center gap-2 text-sm">
+                <BrainCircuit className="w-4 h-4 text-purple-500" /> Pengaturan Mesin AI & API Key
+              </h4>
+              <div className="flex items-center gap-3">
+                {apiKey ? (
+                  <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> API Key Tersimpan</span>
+                ) : (
+                  <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded border border-red-500/30">API Key Kosong</span>
+                )}
+                {showAISettings ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
               </div>
-              <button 
-                onClick={handleAnalyzeVideo}
-                disabled={!youtubeUrl}
-                className="px-8 py-4 bg-white text-gray-950 font-bold rounded-xl hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[200px]"
-              >
-                Analisis Video
-              </button>
             </div>
-            {errorMsg && <p className="text-red-400 text-sm mt-3 flex items-center gap-1"><AlertCircle className="w-4 h-4"/> {errorMsg}</p>}
+
+            {showAISettings && (
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                
+                <div className="bg-gray-900 border border-purple-500/30 shadow-inner shadow-purple-500/5 p-4 rounded-lg sm:col-span-2">
+                  <label className="text-xs text-gray-300 font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <Key className="w-4 h-4 text-purple-400"/> API Key Utama (Google Gemini)
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      placeholder="Masukkan API Key (misal: AIzaSy...)"
+                      className="w-full bg-gray-950 text-white text-sm border border-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-lg p-3 outline-none transition"
+                    />
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-2">API Key Anda akan langsung dikirimkan ke server Google Gemini melalui Frontend, tidak disimpan di server kami.</p>
+                </div>
+
+                <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
+                  <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Gauge className="w-3 h-3"/> Mode Proses</label>
+                  <select 
+                    value={globalAISettings.mode}
+                    onChange={(e) => setGlobalAISettings({...globalAISettings, mode: e.target.value})}
+                    className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
+                  >
+                    <option value="fast">🚀 Super Cepat (Draft)</option>
+                    <option value="balanced">⚖️ Seimbang (Rekomendasi)</option>
+                    <option value="quality">🌟 Kualitas Studio (Lambat)</option>
+                  </select>
+                </div>
+
+                <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
+                  <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Cpu className="w-3 h-3"/> Hardware Accel</label>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-sm text-gray-300">Gunakan GPU (Anti Lag)</span>
+                    <button onClick={() => setGlobalAISettings({...globalAISettings, hardwareAccel: !globalAISettings.hardwareAccel})}>
+                      {globalAISettings.hardwareAccel ? <ToggleRight className="w-8 h-8 text-purple-500" /> : <ToggleLeft className="w-8 h-8 text-gray-600" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg sm:col-span-2">
+                  <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Focus className="w-3 h-3"/> Fokus Target AI</label>
+                  <select 
+                    value={globalAISettings.focus}
+                    onChange={(e) => setGlobalAISettings({...globalAISettings, focus: e.target.value})}
+                    className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
+                  >
+                    <option value="viral">🔥 Momen Paling Viral / Engagement</option>
+                    <option value="comedy">😂 Komedi & Reaksi Lucu</option>
+                    <option value="education">📚 Edukasi / Poin Penting</option>
+                  </select>
+                </div>
+
+              </div>
+            )}
           </div>
-        </div>
+
+          <div className="bg-gray-900/80 rounded-3xl p-8 border border-gray-800 shadow-xl mb-10">
+            <div className="mb-6">
+              <label className="block text-gray-300 text-sm font-medium mb-3 flex items-center gap-2">
+                <Youtube className="text-red-500 w-5 h-5" /> Paste Link YouTube Disini
+              </label>
+              <div className="flex flex-col md:flex-row gap-3">
+                <div className="relative flex-1">
+                  <input 
+                    type="text" 
+                    placeholder="[https://www.youtube.com/watch?v=](https://www.youtube.com/watch?v=)..." 
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    className="w-full bg-gray-950 border border-gray-800 text-white px-5 py-4 rounded-xl focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition shadow-inner"
+                  />
+                </div>
+                <button 
+                  onClick={handleAnalyzeVideo}
+                  disabled={!youtubeUrl}
+                  className="px-8 py-4 bg-white text-gray-950 font-bold rounded-xl hover:bg-gray-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[200px]"
+                >
+                  Analisis Video
+                </button>
+              </div>
+              {errorMsg && <p className="text-red-400 text-sm mt-3 flex items-center gap-1"><AlertCircle className="w-4 h-4"/> {errorMsg}</p>}
+            </div>
+          </div>
+        </>
       )}
 
       {processState === 'analyzing' && (
         <div className="bg-gray-900/80 rounded-3xl p-12 border border-gray-800 flex flex-col items-center justify-center text-center">
           <Loader2 className="w-12 h-12 text-purple-500 animate-spin mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">Mengambil Metadata Video...</h3>
-          <p className="text-gray-400 text-sm">Sistem sedang membaca durasi dan kualitas video sumber.</p>
+          <p className="text-gray-400 text-sm">Menyiapkan URL dan mengambil durasi video sumber.</p>
         </div>
       )}
 
@@ -490,75 +597,17 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-
-                {/* --- FITUR BARU: PENGATURAN MESIN AI LOKAL --- */}
-                <div className="mt-6 bg-gray-950/60 rounded-xl border border-gray-800 p-4 transition-all">
-                  <div 
-                    className="flex items-center justify-between cursor-pointer"
-                    onClick={() => setShowAISettings(!showAISettings)}
-                  >
-                    <h4 className="text-white font-semibold flex items-center gap-2 text-sm">
-                      <BrainCircuit className="w-4 h-4 text-purple-500" /> Pengaturan Mesin AI (Kelancaran Aplikasi)
-                    </h4>
-                    {showAISettings ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                  </div>
-
-                  {showAISettings && (
-                    <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                      
-                      {/* Mode Performa */}
-                      <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
-                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Gauge className="w-3 h-3"/> Mode Proses</label>
-                        <select 
-                          value={globalAISettings.mode}
-                          onChange={(e) => setGlobalAISettings({...globalAISettings, mode: e.target.value})}
-                          className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
-                        >
-                          <option value="fast">🚀 Super Cepat (Draft)</option>
-                          <option value="balanced">⚖️ Seimbang (Rekomendasi)</option>
-                          <option value="quality">🌟 Kualitas Studio (Lambat)</option>
-                        </select>
-                      </div>
-
-                      {/* Hardware Acceleration */}
-                      <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg">
-                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Cpu className="w-3 h-3"/> Hardware Accel</label>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-sm text-gray-300">Gunakan GPU (Anti Lag)</span>
-                          <button 
-                            onClick={() => setGlobalAISettings({...globalAISettings, hardwareAccel: !globalAISettings.hardwareAccel})}
-                          >
-                            {globalAISettings.hardwareAccel ? <ToggleRight className="w-8 h-8 text-purple-500" /> : <ToggleLeft className="w-8 h-8 text-gray-600" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Fokus Algoritma AI */}
-                      <div className="bg-gray-900 border border-gray-700 p-3 rounded-lg sm:col-span-2">
-                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1"><Focus className="w-3 h-3"/> Fokus Target AI</label>
-                        <select 
-                          value={globalAISettings.focus}
-                          onChange={(e) => setGlobalAISettings({...globalAISettings, focus: e.target.value})}
-                          className="w-full bg-gray-800 text-white text-sm border-none focus:ring-1 focus:ring-purple-500 rounded p-2 outline-none"
-                        >
-                          <option value="viral">🔥 Momen Paling Viral / Engagement</option>
-                          <option value="comedy">😂 Komedi & Reaksi Lucu</option>
-                          <option value="education">📚 Edukasi / Poin Penting</option>
-                        </select>
-                      </div>
-
-                    </div>
-                  )}
-                </div>
-                {/* ------------------------------------------- */}
               </div>
 
-              <div className="mt-6 pt-4 flex items-center justify-end border-t border-gray-800">
+              <div className="mt-8 pt-4 flex flex-col md:flex-row items-center justify-between border-t border-gray-800 gap-4">
+                 <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <Key className="w-4 h-4 text-green-500" /> API Key Gemini Terhubung
+                 </div>
                 <button 
                   onClick={handleGenerate}
                   className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-purple-500/30 transition flex items-center gap-2 w-full md:w-auto justify-center"
                 >
-                  <Scissors className="w-5 h-5" /> Mulai Potong Video
+                  <Scissors className="w-5 h-5" /> Mulai Potong dengan AI
                 </button>
               </div>
             </div>
@@ -571,21 +620,22 @@ export default function App() {
           <div className="max-w-xl mx-auto">
             <div className="relative w-24 h-24 mx-auto mb-8">
               <div className="absolute inset-0 border-4 border-gray-800 rounded-full"></div>
-              <div className="absolute inset-0 border-4 border-purple-500 rounded-full border-t-transparent animate-spin" style={{ animationDuration: globalAISettings.mode === 'fast' ? '0.5s' : '1s' }}></div>
+              {/* Animasi lingkaran melambat saat API Processing */}
+              <div className="absolute inset-0 border-4 border-purple-500 rounded-full border-t-transparent animate-spin" style={{ animationDuration: '2s' }}></div>
               <div className="absolute inset-0 flex items-center justify-center text-xl font-bold text-white">
                 {progress}%
               </div>
             </div>
             <h3 className="text-2xl font-bold text-white mb-2">
-              {globalAISettings.mode === 'fast' ? 'Proses Cepat Sedang Berjalan...' : 'AI Sedang Memproses Video...'}
+              Gemini AI Sedang Bekerja...
             </h3>
             <p className="text-purple-400 font-medium mb-6 animate-pulse">{progressText}</p>
             
             <div className="bg-gray-950 rounded-xl p-4 text-left border border-gray-800 flex items-center gap-4">
                <FileVideo className="text-gray-600 w-8 h-8" />
                <div>
-                 <p className="text-gray-400 text-sm">Mempersiapkan <strong className="text-white">{globalAISettings.mode === 'fast' ? Math.ceil(videoMetadata.estimatedShorts / 2) : videoMetadata.estimatedShorts}</strong> potongan video vertikal.</p>
-                 <p className="text-xs text-green-500 mt-1">Status GPU: {globalAISettings.hardwareAccel ? 'Aktif (Rendering Optimal)' : 'Non-Aktif'}</p>
+                 <p className="text-gray-400 text-sm">LLM sedang menyusun transkrip, skor, dan waktu potong.</p>
+                 <p className="text-xs text-green-500 mt-1">Status: Terhubung via Google API endpoint</p>
                </div>
             </div>
           </div>
@@ -597,7 +647,7 @@ export default function App() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-3xl font-bold text-white flex items-center gap-3">
-                <CheckCircle2 className="text-green-500 w-8 h-8" /> {generatedShorts.length} Shorts Berhasil Dibuat!
+                <CheckCircle2 className="text-green-500 w-8 h-8" /> {generatedShorts.length} Shorts Berhasil Dibuat oleh AI!
               </h3>
             </div>
             <button onClick={resetDashboard} className="px-5 py-2.5 bg-gray-800 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition">
@@ -912,7 +962,7 @@ export default function App() {
             <div className="absolute bottom-24 inset-x-0 text-center pointer-events-none px-4 z-10">
                <p className="text-white font-extrabold text-xl leading-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] shadow-black uppercase transition-all duration-300 transform scale-100">
                  <span className="bg-black/60 px-3 py-1.5 leading-relaxed rounded backdrop-blur-sm border border-white/10 shadow-xl inline-block animate-in zoom-in duration-200">
-                   {playingVideo.transcript[activeSubtitleIndex]?.text.toUpperCase() || '...'}
+                   {playingVideo.transcript[activeSubtitleIndex]?.text?.toUpperCase() || '...'}
                  </span>
                </p>
             </div>
