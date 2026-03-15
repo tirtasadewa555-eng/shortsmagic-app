@@ -78,7 +78,7 @@ export default function App() {
 
     try {
       // Melakukan request ringan ke Gemini API untuk memverifikasi Key
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -289,7 +289,7 @@ export default function App() {
       setProgress(30);
       setProgressText('Gemini sedang merancang struktur video & transkrip...');
 
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
