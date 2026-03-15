@@ -4,7 +4,8 @@ import {
   Zap, Crown, Play, CheckCircle2, ChevronRight, 
   LogOut, User, Video, Loader2, Sparkles, AlertCircle,
   Clock, FileVideo, ChevronLeft, X,
-  Type, BarChart2, Settings, MessageSquare, Save
+  Type, BarChart2, Settings, MessageSquare, Save,
+  Wand2, Focus, Image as ImageIcon, MicOff, ToggleRight, ToggleLeft
 } from 'lucide-react';
 
 export default function App() {
@@ -25,7 +26,7 @@ export default function App() {
   
   // State Fitur Pro Studio
   const [editingShort, setEditingShort] = useState(null);
-  const [studioTab, setStudioTab] = useState('template'); 
+  const [studioTab, setStudioTab] = useState('template'); // 'template', 'subtitles', 'analytics', 'magic'
   const [editedTranscript, setEditedTranscript] = useState([]);
   
   // State Fitur Pemutar Video (Super Presisi)
@@ -198,9 +199,10 @@ export default function App() {
     const steps = [
       'Mendownload video utama (1080p)...',
       'Whisper AI sedang men-transkrip audio...',
+      'Membersihkan keheningan & jeda suara (Silence Removal)...',
       'Mendeteksi momen viral dengan engagement tinggi...',
-      'Memotong video dan melacak wajah...',
-      'Menerapkan template & merender subtitle dinamis...',
+      'Melacak pergerakan wajah (Smart Face Tracking)...',
+      'Mencari footage B-Roll yang relevan dari transkrip...',
       'Menyelesaikan ekspor video...'
     ];
 
@@ -220,7 +222,6 @@ export default function App() {
           clearInterval(interval);
           
           const results = Array.from({ length: videoMetadata.estimatedShorts }).map((_, i) => {
-            // Kalkulasi durasi acak presisi untuk video ini (antara 15 - 60 detik)
             const durationSec = Math.floor(Math.random() * (60 - 15 + 1) + 15);
             const randomStart = Math.floor(Math.random() * (videoMetadata.durationSec > durationSec ? videoMetadata.durationSec - durationSec : 0));
             const exactEndTime = randomStart + durationSec;
@@ -228,7 +229,7 @@ export default function App() {
             return {
               id: i + 1,
               title: `Part ${i + 1} - Hook Utama yang Bikin Penonton Bertahan`,
-              duration: `0:${durationSec.toString().padStart(2, '0')}`, // Format 0:00
+              duration: `0:${durationSec.toString().padStart(2, '0')}`,
               durationSec: durationSec,
               score: `${Math.floor(Math.random() * (99 - 80 + 1) + 80)}%`,
               img: `https://img.youtube.com/vi/${videoMetadata.id}/hqdefault.jpg`, 
@@ -236,18 +237,24 @@ export default function App() {
               startTime: randomStart,
               endTime: exactEndTime,
               appliedTemplate: selectedTemplate,
+              // Data AI Settings Baru
+              aiSettings: {
+                faceTracking: true,
+                autoBRoll: i % 2 === 0, // Dinyalakan acak sebagai demo
+                silenceRemoval: true
+              },
               transcript: [
-                { id: 1, time: '0:00', text: 'Pernahkah kalian menyadari' },
-                { id: 2, time: '0:05', text: 'rahasia besar ini?' },
-                { id: 3, time: '0:10', text: 'Banyak orang yang melewatkan' },
-                { id: 4, time: '0:15', text: 'detail penting yang ada di depan mata.' },
-                { id: 5, time: '0:20', text: 'Tonton sampai habis' },
-                { id: 6, time: '0:25', text: 'untuk penjelasan lengkapnya!' }
+                { id: 1, time: '0:00', text: 'Pernahkah kalian menyadari', bRoll: null },
+                { id: 2, time: '0:05', text: 'rahasia besar dunia ini?', bRoll: 'https://images.unsplash.com/photo-1618044733300-9472054094ee?w=400&q=80' },
+                { id: 3, time: '0:10', text: 'Banyak orang yang melewatkan', bRoll: null },
+                { id: 4, time: '0:15', text: 'peluang bisnis di depan mata.', bRoll: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=80' },
+                { id: 5, time: '0:20', text: 'Tonton sampai habis', bRoll: null },
+                { id: 6, time: '0:25', text: 'untuk penjelasan lengkapnya!', bRoll: null }
               ],
               viralInsights: [
                 'Hook awal sangat kuat memancing rasa penasaran.',
                 'Terdapat transisi visual dinamis di detik ke-5.',
-                'Teks besar & tebal membantu retensi penonton.'
+                'AI menghapus 1.2 detik keheningan (Jump Cut).'
               ]
             };
           });
@@ -602,10 +609,142 @@ export default function App() {
               
               <div className="relative z-10 w-full max-w-[280px] aspect-[9/16] bg-gray-900 border border-gray-700 rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col items-center justify-center text-center group">
                 
-                {/* Progress Bar (Hardware Accelerated) */}
+                {/* Progress Bar */}
                 {isPlayingStudio && (
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800 z-30">
                     <div className="h-full bg-purple-500 transition-all duration-75 ease-linear" style={{ width: `${playProgress}%` }}></div>
+                  </div>
+                )}
+
+                {isPlayingStudio ? (
+                  <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center bg-black">
+                    {/* Simulasi B-Roll Overlay (Jika B-Roll aktif dan ada datanya) */}
+                    {editingShort.aiSettings?.autoBRoll && editedTranscript[activeSubtitleIndex]?.bRoll ? (
+                      <div className="absolute inset-0 z-10 bg-black animate-in fade-in duration-300">
+                        <img src={editedTranscript[activeSubtitleIndex].bRoll} alt="B-Roll" className="w-full h-full object-cover opacity-90 scale-105" />
+                        <div className="absolute top-4 right-4 bg-black/60 px-2 py-1 rounded border border-white/20 flex items-center gap-1 text-[10px] text-white backdrop-blur-sm">
+                          <ImageIcon className="w-3 h-3 text-purple-400" /> B-Roll Active
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Efek Smart Framing (Animasi geser pelan seolah tracking wajah) */}
+                    <div className={`absolute inset-0 w-full h-full ${editingShort.aiSettings?.faceTracking ? 'animate-[pan_10s_ease-in-out_infinite_alternate]' : ''}`}>
+                      <iframe 
+                        key={iframeKey}
+                        src={`https://www.youtube.com/embed/${editingShort.videoId}?autoplay=1&mute=1&controls=0&start=${editingShort.startTime}&end=${editingShort.endTime}&playsinline=1&rel=0&modestbranding=1`}
+                        className="absolute top-1/2 left-1/2 w-full h-full max-w-none -translate-x-1/2 -translate-y-1/2 scale-[3.5] sm:scale-[3.1] pointer-events-none"
+                        allow="autoplay; encrypted-media"
+                        title="Pro Studio Preview"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <img src={editingShort.img} alt="Video" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+                )}
+                
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none"></div>
+                
+                {/* Icon Face Tracking Active Indicator */}
+                {editingShort.aiSettings?.faceTracking && (
+                  <div className="absolute top-6 right-4 z-20 opacity-50">
+                    <Focus className="w-6 h-6 text-green-400 animate-pulse" />
+                  </div>
+                )}
+
+                {!isPlayingStudio ? (
+                  <button 
+                    onClick={() => { setIsPlayingStudio(true); setPlayProgress(0); setIframeKey(k=>k+1); }}
+                    className="bg-white/20 p-4 rounded-full backdrop-blur-md border border-white/40 group-hover:scale-110 transition relative z-20"
+                  >
+                    <Play className="w-8 h-8 text-white fill-white ml-1" />
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => setIsPlayingStudio(false)}
+                    className="absolute inset-0 w-full h-full z-20 flex items-center justify-center opacity-0 hover:opacity-100 transition bg-black/40"
+                  >
+                     <span className="bg-white/20 px-4 py-2 rounded-lg backdrop-blur-md border border-white/40 text-white font-bold text-sm">Pause</span>
+                  </button>
+                )}
+                
+                <div className="absolute bottom-16 left-4 right-4 text-center z-20 pointer-events-none">
+                   <p className="text-white font-bold text-[15px] leading-tight drop-shadow-lg shadow-black bg-black/50 inline-block px-3 py-1.5 rounded-lg border border-gray-700/50 backdrop-blur-sm transition-all duration-300">
+                     {editedTranscript.length > 0 ? editedTranscript[activeSubtitleIndex]?.text : ''}
+                   </p>
+                </div>
+              </div>
+
+              <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-gray-700 text-white text-xs font-mono z-20">
+                Durasi: {editingShort.duration}
+              </div>
+            </div>
+
+            <div className="w-full md:w-7/12 flex flex-col h-full bg-gray-900">
+              <div className="flex items-center justify-between p-6 border-b border-gray-800 bg-gray-950/50">
+                <div>
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2"><Sparkles className="w-5 h-5 text-purple-500" /> Pro Studio</h3>
+                  <p className="text-sm text-gray-400 mt-1 line-clamp-1">{editingShort.title}</p>
+                </div>
+                <button onClick={() => { setEditingShort(null); setIsPlayingStudio(false); }} className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex px-6 border-b border-gray-800 bg-gray-950/30 overflow-x-auto custom-scrollbar">
+                <button onClick={() => setStudioTab('magic')} className={`px-4 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap -mb-[1px] ${studioTab === 'magic' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>
+                  <span className="flex items-center gap-1"><Wand2 className="w-4 h-4" /> AI Magic Tools</span>
+                </button>
+                <button onClick={() => setStudioTab('template')} className={`px-4 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap -mb-[1px] ${studioTab === 'template' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Layout</button>
+                <button onClick={() => setStudioTab('subtitles')} className={`px-4 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap -mb-[1px] ${studioTab === 'subtitles' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Subtitle</button>
+                <button onClick={() => setStudioTab('analytics')} className={`px-4 py-4 text-sm font-semibold border-b-2 transition whitespace-nowrap -mb-[1px] ${studioTab === 'analytics' ? 'border-purple-500 text-purple-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`}>Insights</button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                
+                {/* TAB BARU: AI MAGIC TOOLS */}
+                {studioTab === 'magic' && (
+                  <div className="space-y-6 animate-in fade-in duration-300">
+                    <p className="text-gray-400 text-sm mb-2">Tingkatkan kualitas retensi video dengan penyuntingan berbasis AI generatif.</p>
+                    
+                    {/* Face Tracking Toggle */}
+                    <div className="bg-gray-950 p-5 rounded-xl border border-gray-800 flex items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-bold text-white flex items-center gap-2"><Focus className="w-5 h-5 text-blue-400" /> Smart Face Tracking</h4>
+                        <p className="text-sm text-gray-400 mt-1">AI menggeser crop 9:16 agar wajah selalu di tengah frame.</p>
+                      </div>
+                      <button 
+                        onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, faceTracking: !editingShort.aiSettings?.faceTracking}})}
+                      >
+                        {editingShort.aiSettings?.faceTracking ? <ToggleRight className="w-10 h-10 text-purple-500" /> : <ToggleLeft className="w-10 h-10 text-gray-600" />}
+                      </button>
+                    </div>
+
+                    {/* Auto B-Roll Toggle */}
+                    <div className="bg-gray-950 p-5 rounded-xl border border-gray-800 flex items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-bold text-white flex items-center gap-2"><ImageIcon className="w-5 h-5 text-emerald-400" /> Auto B-Roll (Visual)</h4>
+                        <p className="text-sm text-gray-400 mt-1">Menganalisis teks dan menempelkan video ilustrasi di momen penting.</p>
+                      </div>
+                      <button 
+                        onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, autoBRoll: !editingShort.aiSettings?.autoBRoll}})}
+                      >
+                        {editingShort.aiSettings?.autoBRoll ? <ToggleRight className="w-10 h-10 text-purple-500" /> : <ToggleLeft className="w-10 h-10 text-gray-600" />}
+                      </button>
+                    </div>
+
+                    {/* Silence Removal Toggle */}
+                    <div className="bg-gray-950 p-5 rounded-xl border border-gray-800 flex items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-bold text-white flex items-center gap-2"><MicOff className="w-5 h-5 text-red-400" /> Remove Silences (Jump Cut)</h4>
+                        <p className="text-sm text-gray-400 mt-1">Memotong otomatis jeda nafas, gumaman "umm", dan ruang kosong.</p>
+                      </div>
+                      <button 
+                        onClick={() => setEditingShort({...editingShort, aiSettings: {...editingShort.aiSettings, silenceRemoval: !editingShort.aiSettings?.silenceRemoval}})}
+                      >
+                        {editingShort.aiSettings?.silenceRemoval ? <ToggleRight className="w-10 h-10 text-purple-500" /> : <ToggleLeft className="w-10 h-10 text-gray-600" />}
+                      </button>
+                    </div>
                   </div>
                 )}
 
